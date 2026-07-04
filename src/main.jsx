@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client';
 import {
   Bell, CalendarDays, Check, CheckCircle2, Circle,
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
-  MoreHorizontal, Plus, Search, ShieldCheck, Sparkles, Trash2,
+  MoreHorizontal, Plus, Search, ShieldCheck, Trash2,
   UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip,
   Settings, Moon, Sun, Type
 } from 'lucide-react';
@@ -89,7 +89,6 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
       <p className="nav-title">KHÔNG GIAN LÀM VIỆC</p>
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
-        <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Faerie Workspace</p><button>Tìm hiểu thêm</button></div>
         <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Quản trị viên' : 'Thành viên')}</span></div><button className="profile-menu" onClick={() => { setPage('profile'); close(); }} title="Mở trang tài khoản"><MoreHorizontal size={18} /></button></div>
       </div>
     </aside>
