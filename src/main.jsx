@@ -157,10 +157,10 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
   const filteredPeople = people.filter((p) => p.department === form.department);
-  const choices = filteredPeople.length ? filteredPeople : people;
+  const choices = filteredPeople;
   useEffect(() => {
-    if (people.length && !filteredPeople.some((p) => p.id === form.assignee)) {
-      setForm((current) => ({ ...current, assignee: filteredPeople[0]?.id || people[0]?.id || '' }));
+    if (!filteredPeople.some((p) => p.id === form.assignee)) {
+      setForm((current) => ({ ...current, assignee: filteredPeople[0]?.id || '' }));
     }
   }, [form.department, people]);
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
