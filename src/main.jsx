@@ -12,6 +12,7 @@ import { api, getToken } from './api';
 
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
+const ELEVATED_JOBS = new Set(['Leader', 'Sub Leader', 'Mentor', 'Supporter']);
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
@@ -217,7 +218,15 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
 }
 
 function App() {
-  const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
+  const [role, setRole] = useState(() => {
+    const savedRole = sessionStorage.getItem('taskflow-role');
+    if (savedRole) return savedRole;
+    try {
+      const savedUser = JSON.parse(sessionStorage.getItem('taskflow-user'));
+      if (savedUser?.job && ELEVATED_JOBS.has(savedUser.job)) return 'admin';
+    } catch { /* ignore */ }
+    return null;
+  });
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -239,10 +248,11 @@ function App() {
     }
   }, [role]);
   const login = ({ role: nextRole, token, user: nextUser }) => {
-    sessionStorage.setItem('taskflow-role', nextRole);
+    const uiRole = nextRole === 'admin' || ELEVATED_JOBS.has(nextUser?.job) ? 'admin' : 'user';
+    sessionStorage.setItem('taskflow-role', uiRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
     if (nextUser) sessionStorage.setItem('taskflow-user', JSON.stringify(nextUser));
-    setRole(nextRole);
+    setRole(uiRole);
     setUser(nextUser || null);
   };
   const logout = () => {
