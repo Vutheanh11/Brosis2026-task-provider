@@ -248,7 +248,7 @@ function ProfilePage({ user, onUpdated }) {
   </>;
 }
 
-function SettingsPage({ theme, setTheme, fontSize, setFontSize }) {
+function SettingsPage({ theme, setTheme, fontSize, setFontSize, fontStyle, setFontStyle }) {
   const themes = [
     { id: 'light', label: 'Light mode', detail: 'Giao diện sáng, rõ ràng', icon: Sun },
     { id: 'dark', label: 'Dark mode', detail: 'Dịu mắt trong môi trường tối', icon: Moon }
@@ -258,12 +258,18 @@ function SettingsPage({ theme, setTheme, fontSize, setFontSize }) {
     { id: 'medium', label: 'Vừa', sample: 'Aa', detail: 'Kích thước cân bằng mặc định' },
     { id: 'large', label: 'Lớn', sample: 'Aa', detail: 'Dễ đọc và thoải mái hơn' }
   ];
+  const fontStyles = [
+    { id: 'dm-sans', label: 'DM Sans', detail: 'Hiện đại và dễ đọc', sample: 'Faerie' },
+    { id: 'manrope', label: 'Manrope', detail: 'Gọn gàng và mạnh mẽ', sample: 'Faerie' },
+    { id: 'serif', label: 'Georgia', detail: 'Trang trọng và cổ điển', sample: 'Faerie' }
+  ];
   return <>
     <section className="page-heading"><div><p className="eyebrow">CÁ NHÂN HÓA</p><h1>Cài đặt giao diện</h1><p>Điều chỉnh màu sắc và cỡ chữ theo cách bạn muốn.</p></div></section>
     <section className="settings-layout">
       <article className="panel settings-card"><div className="settings-heading"><span><Sun size={20} /></span><div><h3>Chế độ hiển thị</h3><p>Chọn giao diện sáng hoặc tối.</p></div></div><div className="setting-options theme-options">{themes.map((item) => <button key={item.id} className={theme === item.id ? 'selected' : ''} onClick={() => setTheme(item.id)}><item.icon size={24} /><div><strong>{item.label}</strong><span>{item.detail}</span></div><i>{theme === item.id && <Check size={15} />}</i></button>)}</div></article>
       <article className="panel settings-card"><div className="settings-heading"><span><Type size={20} /></span><div><h3>Cỡ chữ</h3><p>Áp dụng cho toàn bộ workspace.</p></div></div><div className="setting-options font-options">{fontSizes.map((item) => <button key={item.id} className={`${fontSize === item.id ? 'selected' : ''} font-${item.id}`} onClick={() => setFontSize(item.id)}><b>{item.sample}</b><div><strong>{item.label}</strong><span>{item.detail}</span></div><i>{fontSize === item.id && <Check size={15} />}</i></button>)}</div></article>
-      <article className="panel settings-preview"><p className="eyebrow">XEM TRƯỚC</p><h2>Faerie Workspace</h2><p>Giao diện hiện tại đang sử dụng <strong>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</strong> với cỡ chữ <strong>{fontSizes.find((item) => item.id === fontSize)?.label}</strong>.</p><div className="preview-row"><span className="status-badge đang-làm"><Clock3 size={14} />Đang làm</span><button className="primary">Nút mẫu</button></div></article>
+      <article className="panel settings-card font-style-card"><div className="settings-heading"><span><Type size={20} /></span><div><h3>Font style</h3><p>Chọn phong cách chữ cho toàn bộ website.</p></div></div><div className="setting-options font-style-options">{fontStyles.map((item) => <button key={item.id} className={fontStyle === item.id ? 'selected' : ''} onClick={() => setFontStyle(item.id)}><b style={{ fontFamily: item.id === 'serif' ? 'Georgia, serif' : `'${item.label}', sans-serif` }}>{item.sample}</b><div><strong>{item.label}</strong><span>{item.detail}</span></div><i>{fontStyle === item.id && <Check size={15} />}</i></button>)}</div></article>
+      <article className="panel settings-preview"><p className="eyebrow">XEM TRƯỚC</p><h2>Faerie Workspace</h2><p>Đang dùng <strong>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</strong>, cỡ chữ <strong>{fontSizes.find((item) => item.id === fontSize)?.label}</strong> và font <strong>{fontStyles.find((item) => item.id === fontStyle)?.label}</strong>.</p><div className="preview-row"><span className="status-badge đang-làm"><Clock3 size={14} />Đang làm</span><button className="primary">Nút mẫu</button></div></article>
     </section>
   </>;
 }
@@ -272,6 +278,7 @@ function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
   const [theme, setTheme] = useState(() => localStorage.getItem('faerie-theme') || 'light');
   const [fontSize, setFontSize] = useState(() => localStorage.getItem('faerie-font-size') || 'medium');
+  const [fontStyle, setFontStyle] = useState(() => localStorage.getItem('faerie-font-style') || 'dm-sans');
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -287,6 +294,10 @@ function App() {
     document.documentElement.dataset.fontSize = fontSize;
     localStorage.setItem('faerie-font-size', fontSize);
   }, [fontSize]);
+  useEffect(() => {
+    document.documentElement.dataset.fontFamily = fontStyle;
+    localStorage.setItem('faerie-font-style', fontStyle);
+  }, [fontStyle]);
   useEffect(() => {
     if (!role || !getToken()) return;
     api.tasks().then(setTasks).catch(() => {});
@@ -351,7 +362,7 @@ function App() {
     sessionStorage.setItem('taskflow-user', JSON.stringify(updated));
   };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
