@@ -310,6 +310,10 @@ function DeleteTaskModal({ task, code, onClose, onConfirm }) {
   return <div className="modal-backdrop delete-confirm-backdrop" onMouseDown={onClose}><div className="delete-confirm-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close delete-confirm-close" onClick={onClose}><X size={19} /></button><div className="delete-warning-icon"><AlertTriangle size={26} /></div><p className="eyebrow">XÁC NHẬN XÓA TASK</p><h2>Xóa “{task.title}”?</h2><p>Task, bài nộp và toàn bộ file liên quan sẽ bị xóa vĩnh viễn. Nhập chính xác mã dưới đây để tiếp tục.</p><div className="delete-code">{code}</div><form onSubmit={submit}><label>Nhập lại mã xác nhận</label><input autoFocus value={value} onChange={(event) => setValue(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder="Nhập 6 ký tự" autoComplete="off" /><div className="delete-confirm-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="danger-confirm" disabled={!matched || deleting}>{deleting ? 'Đang xóa...' : 'Xóa task vĩnh viễn'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
 }
 
+function WorkspaceLoading() {
+  return <div className="workspace-loading" aria-label="Đang tải dữ liệu"><div className="loading-heading"><span className="skeleton skeleton-kicker"></span><span className="skeleton skeleton-title"></span><span className="skeleton skeleton-copy"></span></div><div className="loading-stats">{Array.from({ length: 4 }, (_, index) => <div className="loading-card" key={index}><span className="skeleton skeleton-icon"></span><div><span className="skeleton skeleton-line short"></span><span className="skeleton skeleton-number"></span><span className="skeleton skeleton-line"></span></div></div>)}</div><div className="loading-panels"><div className="loading-panel"><span className="skeleton skeleton-panel-title"></span>{Array.from({ length: 4 }, (_, index) => <span className="skeleton skeleton-row" key={index}></span>)}</div><div className="loading-panel"><span className="skeleton skeleton-panel-title"></span><span className="loading-spinner"></span><strong>Đang tải workspace...</strong></div></div></div>;
+}
+
 function ProfilePage({ user, onUpdated }) {
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
@@ -378,6 +382,7 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [deletePrompt, setDeletePrompt] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [workspaceLoading, setWorkspaceLoading] = useState(() => Boolean(sessionStorage.getItem('taskflow-role')));
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('faerie-theme', theme);
@@ -391,17 +396,22 @@ function App() {
     localStorage.setItem('faerie-font-style', fontStyle);
   }, [fontStyle]);
   useEffect(() => {
-    if (!role || !getToken()) return;
-    api.tasks().then(setTasks).catch(() => {});
-    api.reminders().then((items) => setReminders(items.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)))).catch(() => {});
-    if (role === 'admin') {
-      api.users().then((users) => setPeople(users.map((u) => ({
-        ...u,
-        role: u.job || 'Thành viên',
-        initials: u.initials || u.name.slice(0, 2).toUpperCase(),
-        color: u.color || '#73a4ff'
-      })))).catch(() => {});
-    }
+    if (!role || !getToken()) { setWorkspaceLoading(false); return; }
+    let cancelled = false;
+    setWorkspaceLoading(true);
+    Promise.allSettled([
+      api.tasks(),
+      api.reminders(),
+      role === 'admin' ? api.users() : Promise.resolve([])
+    ]).then(([taskResult, reminderResult, userResult]) => {
+      if (cancelled) return;
+      if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
+      if (reminderResult.status === 'fulfilled') setReminders(reminderResult.value.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)));
+      if (role === 'admin' && userResult.status === 'fulfilled') setPeople(userResult.value.map((u) => ({
+        ...u, role: u.job || 'Thành viên', initials: u.initials || u.name.slice(0, 2).toUpperCase(), color: u.color || '#73a4ff'
+      })));
+    }).finally(() => { if (!cancelled) setWorkspaceLoading(false); });
+    return () => { cancelled = true; };
   }, [role]);
   useEffect(() => {
     if (!role || !getToken()) return;
@@ -413,6 +423,7 @@ function App() {
     sessionStorage.setItem('taskflow-role', nextRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
     if (nextUser) sessionStorage.setItem('taskflow-user', JSON.stringify(nextUser));
+    setWorkspaceLoading(true);
     setRole(nextRole);
     setUser(nextUser || null);
   };
@@ -427,6 +438,7 @@ function App() {
     setReminders([]);
     setSelectedTaskId('');
     setDeletePrompt(null);
+    setWorkspaceLoading(false);
     setPage('overview');
   };
   const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
@@ -497,7 +509,7 @@ function App() {
     ? tasks.flatMap((task) => (task.submissions || []).filter((submission) => submission.status === 'pending').map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: `${getPerson(task.assignee, people).name} đã nộp bài`, tone: 'pending' })))
     : tasks.flatMap((task) => (task.submissions || []).filter((submission) => ['approved', 'rejected'].includes(submission.status) && !submission.memberReadAt).map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: submission.status === 'approved' ? 'Admin đã Approve bài nộp' : 'Admin đã Reject bài nộp', tone: submission.status })));
   const notificationTitle = role === 'admin' ? 'Bài nộp chờ duyệt' : 'Kết quả duyệt task';
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
