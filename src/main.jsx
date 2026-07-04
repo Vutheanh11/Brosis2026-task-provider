@@ -4,7 +4,8 @@ import {
   Bell, CalendarDays, Check, CheckCircle2, Circle,
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
   MoreHorizontal, Plus, Search, ShieldCheck, Sparkles, Trash2,
-  UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip
+  UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip,
+  Settings, Moon, Sun, Type
 } from 'lucide-react';
 import './styles.css';
 import { api, getToken } from './api';
@@ -76,8 +77,8 @@ function Login({ onLogin }) {
 
 function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
   const nav = role === 'admin'
-    ? [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc', icon: ListTodo }, { id: 'users', label: 'Thành viên', icon: Users }]
-    : [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc của tôi', icon: ListTodo }];
+    ? [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc', icon: ListTodo }, { id: 'users', label: 'Thành viên', icon: Users }, { id: 'settings', label: 'Cài đặt', icon: Settings }]
+    : [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc của tôi', icon: ListTodo }, { id: 'settings', label: 'Cài đặt', icon: Settings }];
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
   const miniPerson = { initials, color: user?.color || '#73a4ff' };
   return <>
@@ -218,8 +219,30 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
   return <div className="modal-backdrop" onMouseDown={close}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CÔNG VIỆC MỚI</p><h2>Giao công việc</h2><p>Chỉ định người phụ trách và thiết lập thông tin.</p></div><button className="modal-close" onClick={close}><X /></button></div><form onSubmit={submit}><label>Tên công việc</label><input autoFocus value={form.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Hoàn thiện báo cáo tháng..." required /><label>Mô tả</label><textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Mô tả ngắn gọn yêu cầu công việc" rows="3"></textarea><div className="form-grid"><div><label>Giao cho</label><select value={form.assignee} onChange={e => update('assignee', e.target.value)}>{people.map(p => <option key={p.id} value={p.id}>{p.name} — {p.role}</option>)}</select></div><div><label>Hạn hoàn thành</label><input type="date" value={form.due} onChange={e => update('due', e.target.value)} /></div><div><label>Mức ưu tiên</label><select value={form.priority} onChange={e => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Nhóm công việc</label><select value={form.tag} onChange={e => update('tag', e.target.value)}><option>Development</option><option>Design</option><option>Marketing</option><option>Content</option></select></div></div><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Hủy</button><button className="primary"><Plus size={18} /> Giao công việc</button></div></form></div></div>;
 }
 
+function SettingsPage({ theme, setTheme, fontSize, setFontSize }) {
+  const themes = [
+    { id: 'light', label: 'Light mode', detail: 'Giao diện sáng, rõ ràng', icon: Sun },
+    { id: 'dark', label: 'Dark mode', detail: 'Dịu mắt trong môi trường tối', icon: Moon }
+  ];
+  const fontSizes = [
+    { id: 'small', label: 'Nhỏ', sample: 'Aa', detail: 'Gọn gàng, hiển thị nhiều nội dung' },
+    { id: 'medium', label: 'Vừa', sample: 'Aa', detail: 'Kích thước cân bằng mặc định' },
+    { id: 'large', label: 'Lớn', sample: 'Aa', detail: 'Dễ đọc và thoải mái hơn' }
+  ];
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">CÁ NHÂN HÓA</p><h1>Cài đặt giao diện</h1><p>Điều chỉnh màu sắc và cỡ chữ theo cách bạn muốn.</p></div></section>
+    <section className="settings-layout">
+      <article className="panel settings-card"><div className="settings-heading"><span><Sun size={20} /></span><div><h3>Chế độ hiển thị</h3><p>Chọn giao diện sáng hoặc tối.</p></div></div><div className="setting-options theme-options">{themes.map((item) => <button key={item.id} className={theme === item.id ? 'selected' : ''} onClick={() => setTheme(item.id)}><item.icon size={24} /><div><strong>{item.label}</strong><span>{item.detail}</span></div><i>{theme === item.id && <Check size={15} />}</i></button>)}</div></article>
+      <article className="panel settings-card"><div className="settings-heading"><span><Type size={20} /></span><div><h3>Cỡ chữ</h3><p>Áp dụng cho toàn bộ workspace.</p></div></div><div className="setting-options font-options">{fontSizes.map((item) => <button key={item.id} className={`${fontSize === item.id ? 'selected' : ''} font-${item.id}`} onClick={() => setFontSize(item.id)}><b>{item.sample}</b><div><strong>{item.label}</strong><span>{item.detail}</span></div><i>{fontSize === item.id && <Check size={15} />}</i></button>)}</div></article>
+      <article className="panel settings-preview"><p className="eyebrow">XEM TRƯỚC</p><h2>Faerie Workspace</h2><p>Giao diện hiện tại đang sử dụng <strong>{theme === 'dark' ? 'Dark mode' : 'Light mode'}</strong> với cỡ chữ <strong>{fontSizes.find((item) => item.id === fontSize)?.label}</strong>.</p><div className="preview-row"><span className="status-badge đang-làm"><Clock3 size={14} />Đang làm</span><button className="primary">Nút mẫu</button></div></article>
+    </section>
+  </>;
+}
+
 function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
+  const [theme, setTheme] = useState(() => localStorage.getItem('faerie-theme') || 'light');
+  const [fontSize, setFontSize] = useState(() => localStorage.getItem('faerie-font-size') || 'medium');
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -227,6 +250,14 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [defaultAssignee, setDefaultAssignee] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
+  useEffect(() => {
+    document.documentElement.dataset.theme = theme;
+    localStorage.setItem('faerie-theme', theme);
+  }, [theme]);
+  useEffect(() => {
+    document.documentElement.dataset.fontSize = fontSize;
+    localStorage.setItem('faerie-font-size', fontSize);
+  }, [fontSize]);
   useEffect(() => {
     if (!role || !getToken()) return;
     api.tasks().then(setTasks).catch(() => {});
@@ -258,7 +289,7 @@ function App() {
     setReminders([]);
     setPage('overview');
   };
-  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task' })[page], [page, role]);
+  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt' })[page], [page, role]);
   const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
   const addTask = async (task) => {
     const temporary = { ...task, id: `temp-${Date.now()}` };
@@ -283,7 +314,7 @@ function App() {
     catch { setTasks(previous); }
   };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}</main></div></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
