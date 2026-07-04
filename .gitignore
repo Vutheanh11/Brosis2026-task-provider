@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+Brosis-BackEnd/node_modules/
+Brosis-BackEnd/.env
+Brosis-BackEnd/data/db.json
+*.log
+Brosis-BackEnd/
