@@ -29,7 +29,7 @@ Backend: `http://localhost:10000/api`
 - Admin: `admin@taskflow.vn` / `123456`
 - User: `user@taskflow.vn` / `123456`
 
-## Deploy frontend lên Render
+## Deploy frontend lên GitHub Pages
 
 Frontend production đã được nối với:
 
@@ -37,9 +37,15 @@ Frontend production đã được nối với:
 https://brosis-backend.onrender.com/api
 ```
 
-Push thư mục gốc này lên một GitHub repository riêng (thư mục `Brosis-BackEnd` đã được bỏ qua), sau đó trên Render chọn **New > Blueprint**. Render sẽ đọc `render.yaml`, build và deploy static site `Brosis-FrontEnd`.
+Mỗi lần push lên branch `main`, workflow `.github/workflows/deploy-pages.yml` sẽ tự build và deploy frontend. Trong GitHub vào **Settings > Pages**, chọn **Source: GitHub Actions**.
 
-Sau khi có URL frontend, cập nhật biến `FRONTEND_URL` của service backend trên Render bằng URL đó rồi redeploy backend.
+URL frontend:
+
+```text
+https://vutheanh11.github.io/Brosis2026-task-provider/
+```
+
+Cập nhật biến `FRONTEND_URL` của service backend trên Render thành `https://vutheanh11.github.io`, rồi redeploy backend.
 
 ## Backend
 
