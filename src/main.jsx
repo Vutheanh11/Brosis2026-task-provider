@@ -69,19 +69,19 @@ function Login({ onLogin }) {
   return (
     <main className="login-shell">
       <section className="login-brand">
-        <div className="brand-lockup"><span className="brand-mark"><Check size={20} strokeWidth={3} /></span><span>taskflow</span></div>
+        <div className="brand-lockup"><span className="brand-mark"><Check size={20} strokeWidth={3} /></span><span>Faerie Workspace</span></div>
         <div className="brand-message">
           <div className="brand-art"><span className="art-card one"></span><span className="art-card two"></span><span className="art-check"><Check size={44} strokeWidth={2.8} /></span></div>
           <p className="eyebrow light">LÀM VIỆC THÔNG MINH HƠN</p>
           <h1>Mọi công việc.<br />Một nơi duy nhất.</h1>
           <p>Giao việc rõ ràng, theo dõi tiến độ dễ dàng và cùng đội nhóm hoàn thành mục tiêu.</p>
         </div>
-        <p className="login-copyright">© 2026 Taskflow. Made for great teams.</p>
+        <p className="login-copyright">© 2026 Faerie Workspace. Made for great teams.</p>
       </section>
       <section className="login-panel">
         <div className="login-card">
-          <div className="mobile-brand"><span className="brand-mark"><Check size={18} strokeWidth={3} /></span> taskflow</div>
-          <p className="eyebrow">{mode === 'login' ? 'CHÀO MỪNG TRỞ LẠI' : 'THAM GIA TASKFLOW'}</p>
+          <div className="mobile-brand"><span className="brand-mark"><Check size={18} strokeWidth={3} /></span> Faerie Workspace</div>
+          <p className="eyebrow">{mode === 'login' ? 'CHÀO MỪNG TRỞ LẠI' : 'THAM GIA FAERIE WORKSPACE'}</p>
           <h2>{mode === 'login' ? 'Đăng nhập vào tài khoản' : 'Tạo tài khoản mới'}</h2>
           <p className="muted">{mode === 'login' ? 'Tiếp tục để quản lý công việc của bạn.' : 'Tạo tài khoản để nhận và theo dõi công việc.'}</p>
           <form onSubmit={submit}>
@@ -108,11 +108,11 @@ function Sidebar({ page, setPage, role, mobileOpen, close }) {
   return <>
     {mobileOpen && <div className="overlay" onClick={close}></div>}
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-      <div className="sidebar-brand"><span className="brand-mark"><Check size={19} strokeWidth={3} /></span><span>taskflow</span><button className="sidebar-close" onClick={close}><X /></button></div>
+      <div className="sidebar-brand"><span className="brand-mark"><Check size={19} strokeWidth={3} /></span><span>Faerie Workspace</span><button className="sidebar-close" onClick={close}><X /></button></div>
       <p className="nav-title">KHÔNG GIAN LÀM VIỆC</p>
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
-        <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Taskflow</p><button>Tìm hiểu thêm</button></div>
+        <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Faerie Workspace</p><button>Tìm hiểu thêm</button></div>
         <div className="mini-profile"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</span></div><MoreHorizontal size={18} /></div>
       </div>
     </aside>
@@ -120,7 +120,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close }) {
 }
 
 function Topbar({ title, role, onLogout, openMenu }) {
-  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Taskflow Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Admin' : 'User'}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
+  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Admin' : 'User'}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
 }
 
 function StatCard({ label, value, detail, icon: Icon, tone }) {
