@@ -39,9 +39,10 @@ export const api = {
     files.forEach((file) => body.append('files', file, file.webkitRelativePath || file.name));
     return request(`/tasks/${id}/submissions`, { method: 'POST', body });
   },
-  reviewSubmission: (taskId, submissionId, action) => request(`/tasks/${taskId}/submissions/${submissionId}`, {
-    method: 'PATCH', body: JSON.stringify({ action })
+  reviewSubmission: (taskId, submissionId, action, comment = '') => request(`/tasks/${taskId}/submissions/${submissionId}`, {
+    method: 'PATCH', body: JSON.stringify({ action, comment })
   }),
+  markTaskReviewsRead: (id) => request(`/tasks/${id}/submissions/read`, { method: 'PATCH', body: '{}' }),
   updateTask: (id, changes) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' })
 };
