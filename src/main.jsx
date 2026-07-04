@@ -5,13 +5,14 @@ import {
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
   MoreHorizontal, Plus, Search, ShieldCheck, Trash2,
   UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip,
-  Settings, Moon, Sun, Type, Download, FolderUp
+  Settings, Moon, Sun, Type, Download, FolderUp, MessageSquare,
+  FileCheck, XCircle, ChevronLeft
 } from 'lucide-react';
 import './styles.css';
 import { api, attachmentUrl, getToken } from './api';
 
 
-const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
+const STATUS = ['Cần làm', 'Đang làm', 'Chờ duyệt', 'Hoàn thành'];
 const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
@@ -88,7 +89,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
       <div className="sidebar-brand"><span className="brand-mark"><img src={LOGO_URL} alt="Faerie" /></span><span>Faerie Workspace</span><button className="sidebar-close" onClick={close}><X /></button></div>
       <p className="nav-title">KHÔNG GIAN LÀM VIỆC</p>
-      <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
+      <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (['create', 'task-detail'].includes(page) && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Quản trị viên' : 'Thành viên')}</span></div><button className="profile-menu" onClick={() => { setPage('profile'); close(); }} title="Mở trang tài khoản"><MoreHorizontal size={18} /></button></div>
       </div>
@@ -96,10 +97,11 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
   </>;
 }
 
-function Topbar({ title, role, onLogout, openMenu, user }) {
+function Topbar({ title, role, onLogout, openMenu, user, notifications = [], onOpenTask }) {
+  const [showNotifications, setShowNotifications] = useState(false);
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
   const topPerson = { initials, color: user?.color || '#73a4ff' };
-  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Admin' : 'User')}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
+  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions">{role === 'admin' && <div className="notification-wrap"><button className={`notification ${notifications.length ? 'has-alert' : ''}`} onClick={() => setShowNotifications((open) => !open)} title="Bài nộp chờ duyệt"><Bell size={20} />{notifications.length > 0 && <b>{notifications.length > 99 ? '99+' : notifications.length}</b>}</button>{showNotifications && <div className="notification-menu"><div className="notification-menu-head"><strong>Bài nộp chờ duyệt</strong><span>{notifications.length}</span></div>{notifications.length === 0 ? <p>Chưa có bài nộp mới.</p> : notifications.map((item) => <button key={item.submissionId} onClick={() => { setShowNotifications(false); onOpenTask(item.taskId); }}><span className="notification-icon"><FileCheck size={17} /></span><span><strong>{item.title}</strong><small>{item.memberName} đã nộp bài</small></span><i></i></button>)}</div>}</div>}<div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Admin' : 'User')}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
 }
 
 function StatCard({ label, value, detail, icon: Icon, tone }) {
@@ -107,13 +109,13 @@ function StatCard({ label, value, detail, icon: Icon, tone }) {
 }
 
 function StatusBadge({ status }) {
-  const icon = status === 'Hoàn thành' ? <CheckCircle2 size={14} /> : status === 'Đang làm' ? <Clock3 size={14} /> : <Circle size={14} />;
+  const icon = status === 'Hoàn thành' ? <CheckCircle2 size={14} /> : status === 'Chờ duyệt' ? <FileCheck size={14} /> : status === 'Đang làm' ? <Clock3 size={14} /> : <Circle size={14} />;
   return <span className={`status-badge ${status.replaceAll(' ', '-').toLowerCase()}`}>{icon}{status}</span>;
 }
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminders, user }) {
+function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminders, user, onShowAll, onOpenTask }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
@@ -131,7 +133,7 @@ function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminder
       <StatCard label="Sắp đến hạn" value={visible.filter(t => t.status !== 'Hoàn thành').length} detail="trong 7 ngày tới" icon={CalendarDays} tone="purple" />
     </section>
     <section className="dashboard-grid">
-      <div className="panel activity-panel"><div className="panel-header"><div><h3>Công việc gần đây</h3><p>Tiến độ mới nhất của đội nhóm</p></div><button className="text-action">Xem tất cả →</button></div><div className="recent-list">{visible.slice(0, 5).map(task => { const person = getPerson(task.assignee, people); return <div className="recent-item" key={task.id}><div className="task-check">{task.status === 'Hoàn thành' ? <Check size={15} /> : null}</div><div className="recent-copy"><strong className={task.status === 'Hoàn thành' ? 'done' : ''}>{task.title}</strong><span>{task.tag} · Hạn {fmtDate(task.due)}</span></div><Avatar person={person} small /><StatusBadge status={task.status} /></div>; })}</div></div>
+      <div className="panel activity-panel"><div className="panel-header"><div><h3>Công việc gần đây</h3><p>Tiến độ mới nhất của đội nhóm</p></div><button className="text-action" onClick={onShowAll}>Xem tất cả →</button></div><div className="recent-list">{visible.slice(0, 5).map(task => { const person = getPerson(task.assignee, people); return <button className="recent-item" key={task.id} onClick={() => onOpenTask(task.id)}><div className="task-check">{task.status === 'Hoàn thành' ? <Check size={15} /> : null}</div><div className="recent-copy"><strong className={task.status === 'Hoàn thành' ? 'done' : ''}>{task.title}</strong><span>{task.tag} · Hạn {fmtDate(task.due)}</span></div><Avatar person={person} small /><StatusBadge status={task.status} /></button>; })}</div></div>
       <div className="panel progress-panel"><div className="panel-header"><div><h3>Tiến độ tổng quan</h3><p>Theo trạng thái công việc</p></div></div><div className="donut-wrap"><div className="donut" style={{ '--pct': `${visible.length ? completed / visible.length * 100 : 0}%` }}><div><strong>{visible.length ? Math.round(completed / visible.length * 100) : 0}%</strong><span>Hoàn thành</span></div></div></div><div className="legend">{STATUS.map((status, index) => <div key={status}><span className={`legend-dot dot-${index}`}></span><span>{status}</span><strong>{visible.filter(t => t.status === status).length}</strong></div>)}</div></div>
     </section>
     {role === 'admin' && <AdminInsights tasks={tasks} people={people} reminders={reminders} onClearReminders={onClearReminders} />}
@@ -144,7 +146,7 @@ function TaskAttachments({ attachments = [] }) {
   return <div className="task-attachments">{downloadable.map((file) => <a key={file.id} href={attachmentUrl(file)} target="_blank" rel="noreferrer" title={`Tải ${file.name}`}><Paperclip size={13} /><span>{file.name}</span><small>{fmtBytes(file.size)}</small><Download size={13} /></a>)}</div>;
 }
 
-function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }) {
+function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate, onOpenTask }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tất cả');
   const visible = tasks.filter(t => (filter === 'Tất cả' || t.status === filter) && t.title.toLowerCase().includes(search.toLowerCase()));
@@ -152,7 +154,50 @@ function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }
     <section className="page-heading"><div><p className="eyebrow">QUẢN LÝ CÔNG VIỆC</p><h1>{role === 'admin' ? 'Tất cả công việc' : 'Công việc của tôi'}</h1><p>{role === 'admin' ? 'Theo dõi, phân công và quản lý công việc của đội nhóm.' : 'Theo dõi và cập nhật tiến độ công việc được giao.'}</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
     <section className="panel task-table-panel">
       <div className="task-toolbar"><div className="search-box"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm kiếm công việc..." /></div><div className="filter-tabs">{['Tất cả', ...STATUS].map(s => <button key={s} className={filter === s ? 'active' : ''} onClick={() => setFilter(s)}>{s}</button>)}</div></div>
-      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><strong>{task.title}</strong><p>{task.description}</p><TaskAttachments attachments={task.attachments} /></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></td><td>{role === 'admin' && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
+      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); const statusChoices = role === 'admin' ? STATUS : [...new Set(['Cần làm', 'Đang làm', task.status])]; return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><button className="task-open" onClick={() => onOpenTask(task.id)}>{task.title}</button><p>{task.description}</p><TaskAttachments attachments={task.attachments} /></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select disabled={role !== 'admin' && ['Chờ duyệt', 'Hoàn thành'].includes(task.status)} className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{statusChoices.map(s => <option key={s}>{s}</option>)}</select></td><td>{role === 'admin' && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
+    </section>
+  </>;
+}
+
+function TaskDetailPage({ task, role, person, onBack, onSubmit, onReview }) {
+  const [files, setFiles] = useState([]);
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [reviewingId, setReviewingId] = useState('');
+  const submissions = [...(task?.submissions || [])].sort((a, b) => new Date(b.submittedAt) - new Date(a.submittedAt));
+  const pending = submissions.find((item) => item.status === 'pending');
+  if (!task) return <section className="panel task-not-found"><h2>Không tìm thấy task</h2><button className="secondary" onClick={onBack}>Quay lại</button></section>;
+  const addSubmissionFiles = (event) => {
+    const incoming = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (incoming.some((file) => file.size > 10 * 1024 * 1024)) return setError('Mỗi file không được vượt quá 10 MB.');
+    const next = [...files, ...incoming].slice(0, 20);
+    if (next.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024) return setError('Tổng dung lượng không được vượt quá 50 MB.');
+    setFiles(next);
+    setError(incoming.length + files.length > 20 ? 'Chỉ giữ lại 20 file đầu tiên.' : '');
+  };
+  const submitWork = async (event) => {
+    event.preventDefault();
+    if (!files.length && !message.trim()) return setError('Hãy chọn file hoặc nhập yêu cầu/đề xuất.');
+    setSubmitting(true); setError('');
+    try { await onSubmit(task.id, message, files); setFiles([]); setMessage(''); }
+    catch (requestError) { setError(requestError.message || 'Không thể nộp bài.'); }
+    finally { setSubmitting(false); }
+  };
+  const review = async (submissionId, action) => {
+    setReviewingId(submissionId); setError('');
+    try { await onReview(task.id, submissionId, action); }
+    catch (requestError) { setError(requestError.message || 'Không thể xử lý bài nộp.'); }
+    finally { setReviewingId(''); }
+  };
+  const submissionLabel = (status) => ({ pending: 'Chờ duyệt', approved: 'Đã duyệt', rejected: 'Đã từ chối' })[status] || status;
+  return <>
+    <section className="page-heading detail-heading"><div><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Quay lại danh sách</button><p className="eyebrow">CHI TIẾT TASK</p><h1>{task.title}</h1><p>{task.department || task.tag} · Phụ trách: {person?.name || '—'}</p></div><StatusBadge status={task.status} /></section>
+    <section className="task-detail-grid">
+      <article className="panel task-detail-main"><div className="detail-meta"><div><span>Mức độ ưu tiên</span><Priority value={task.priority} /></div><div><span>Deadline</span><strong><CalendarDays size={16} /> {fmtDate(task.due)}</strong></div></div><div className="detail-description"><h3>Mô tả công việc</h3><p>{task.description || 'Không có mô tả.'}</p></div><div className="detail-assigned-files"><h3>File được giao</h3><TaskAttachments attachments={task.attachments} />{!(task.attachments || []).some((file) => file.id) && <p>Không có file đính kèm.</p>}</div></article>
+      <aside className="panel submission-history"><div className="panel-header"><div><h3>Bài nộp của thành viên</h3><p>File và yêu cầu/đề xuất đã gửi</p></div><FileCheck size={19} /></div><div className="submission-list">{submissions.map((submission) => <article className={`submission-card submission-${submission.status}`} key={submission.id}><div className="submission-card-head"><div><strong>{new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(submission.submittedAt))}</strong><span className={`submission-state ${submission.status}`}>{submissionLabel(submission.status)}</span></div></div>{submission.message && <div className="submission-message"><MessageSquare size={16} /><p>{submission.message}</p></div>}<TaskAttachments attachments={submission.files} />{role === 'admin' && submission.status === 'pending' && <div className="review-actions"><button className="approve-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'approve')}><CheckCircle2 size={17} /> Approve</button><button className="reject-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'reject')}><XCircle size={17} /> Reject</button></div>}</article>)}{submissions.length === 0 && <div className="empty compact-empty"><FileCheck size={25} /><strong>Chưa có bài nộp</strong></div>}</div></aside>
+      {role !== 'admin' && <form className="panel submit-work-card" onSubmit={submitWork}><div className="form-section-title"><span><Upload size={18} /></span><div><h3>Submit file</h3><p>Nộp kết quả công việc để quản trị viên duyệt.</p></div></div>{pending ? <div className="pending-note"><Clock3 size={19} /><div><strong>Bài của bạn đang chờ duyệt</strong><span>Bạn có thể nộp lại nếu quản trị viên Reject.</span></div></div> : task.status === 'Hoàn thành' ? <div className="approved-note"><CheckCircle2 size={19} /><div><strong>Task đã được Approve</strong><span>Công việc đã hoàn thành.</span></div></div> : <><label>File kết quả</label><label className="upload-zone submission-upload"><Upload size={24} /><strong>Chọn file cần nộp</strong><span>Tối đa 20 file · 10 MB/file · tổng 50 MB</span><input type="file" multiple onChange={addSubmissionFiles} /></label>{files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}<label>Yêu cầu / Đề xuất</label><textarea value={message} onChange={(event) => setMessage(event.target.value)} rows="5" maxLength="3000" placeholder="Nhập câu hỏi, yêu cầu hỗ trợ hoặc đề xuất của bạn..." /><button className="primary submit-work-button" disabled={submitting}><Send size={17} />{submitting ? 'Đang nộp...' : 'Submit'}</button></>}{error && <p className="upload-error">{error}</p>}</form>}
     </section>
   </>;
 }
@@ -308,6 +353,7 @@ function App() {
   const [page, setPage] = useState('overview');
   const [tasks, setTasks] = useState([]);
   const [defaultAssignee, setDefaultAssignee] = useState('');
+  const [selectedTaskId, setSelectedTaskId] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -334,6 +380,12 @@ function App() {
       })))).catch(() => {});
     }
   }, [role]);
+  useEffect(() => {
+    if (!role || !getToken()) return;
+    const refreshTasks = () => api.tasks().then(setTasks).catch(() => {});
+    const timer = window.setInterval(refreshTasks, 15000);
+    return () => window.clearInterval(timer);
+  }, [role]);
   const login = ({ role: nextRole, token, user: nextUser }) => {
     sessionStorage.setItem('taskflow-role', nextRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
@@ -350,10 +402,12 @@ function App() {
     setTasks([]);
     setPeople([]);
     setReminders([]);
+    setSelectedTaskId('');
     setPage('overview');
   };
-  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
+  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
   const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
+  const openTask = (id) => { setSelectedTaskId(id); setPage('task-detail'); };
   const addTask = async (task, files = []) => {
     const temporary = { ...task, attachments: files.map((file) => ({ name: file.name, size: file.size })), id: `temp-${Date.now()}` };
     setTasks((current) => [temporary, ...current]);
@@ -372,6 +426,16 @@ function App() {
     try { await api.updateTask(id, { status }); }
     catch { setTasks((current) => current.map((task) => task.id === id ? { ...task, status: previous } : task)); }
   };
+  const submitTaskWork = async (id, message, files) => {
+    const updated = await api.submitTask(id, message, files);
+    setTasks((current) => current.map((task) => task.id === id ? updated : task));
+    return updated;
+  };
+  const reviewTaskSubmission = async (taskId, submissionId, action) => {
+    const updated = await api.reviewSubmission(taskId, submissionId, action);
+    setTasks((current) => current.map((task) => task.id === taskId ? updated : task));
+    return updated;
+  };
   const removeTask = async (id) => {
     const previous = tasks;
     setTasks((current) => current.filter((task) => task.id !== id));
@@ -387,7 +451,10 @@ function App() {
     sessionStorage.setItem('taskflow-user', JSON.stringify(updated));
   };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
+  const selectedTask = tasks.find((task) => task.id === selectedTaskId);
+  const selectedPerson = role === 'admin' ? getPerson(selectedTask?.assignee, people) : { name: user?.name || 'Bạn' };
+  const notifications = role === 'admin' ? tasks.flatMap((task) => (task.submissions || []).filter((submission) => submission.status === 'pending').map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, memberName: getPerson(task.assignee, people).name }))) : [];
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} onOpenTask={openTask} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

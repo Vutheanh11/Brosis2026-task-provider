@@ -33,6 +33,15 @@ export const api = {
     files.forEach((file) => body.append('files', file, file.webkitRelativePath || file.name));
     return request('/tasks', { method: 'POST', body });
   },
+  submitTask: (id, message, files = []) => {
+    const body = new FormData();
+    body.append('message', message || '');
+    files.forEach((file) => body.append('files', file, file.webkitRelativePath || file.name));
+    return request(`/tasks/${id}/submissions`, { method: 'POST', body });
+  },
+  reviewSubmission: (taskId, submissionId, action) => request(`/tasks/${taskId}/submissions/${submissionId}`, {
+    method: 'PATCH', body: JSON.stringify({ action })
+  }),
   updateTask: (id, changes) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' })
 };
