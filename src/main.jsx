@@ -11,7 +11,7 @@ import { api, getToken } from './api';
 
 
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
-const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader'];
+const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
