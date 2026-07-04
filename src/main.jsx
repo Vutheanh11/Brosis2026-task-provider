@@ -9,26 +9,11 @@ import {
 import './styles.css';
 import { api, getToken } from './api';
 
-const PEOPLE = [
-  { id: 'u1', name: 'Minh Anh', email: 'minhanh@taskflow.vn', role: 'Designer', initials: 'MA', color: '#ffc66d' },
-  { id: 'u2', name: 'Hoàng Nam', email: 'hoangnam@taskflow.vn', role: 'Developer', initials: 'HN', color: '#73a4ff' },
-  { id: 'u3', name: 'Ngọc Linh', email: 'ngoclinh@taskflow.vn', role: 'Marketing', initials: 'NL', color: '#ef92ac' },
-  { id: 'u4', name: 'Tuấn Kiệt', email: 'tuankiet@taskflow.vn', role: 'Developer', initials: 'TK', color: '#79cfad' },
-  { id: 'u5', name: 'Thu Hà', email: 'thuha@taskflow.vn', role: 'Content', initials: 'TH', color: '#a58be8' }
-];
-
-const SEED_TASKS = [
-  { id: 1, title: 'Thiết kế landing page mới', description: 'Hoàn thiện giao diện landing page cho chiến dịch tháng 7.', assignee: 'u1', priority: 'Cao', status: 'Đang làm', due: '2026-07-08', tag: 'Design' },
-  { id: 2, title: 'Tích hợp API thanh toán', description: 'Kết nối cổng thanh toán và kiểm thử môi trường sandbox.', assignee: 'u2', priority: 'Cao', status: 'Cần làm', due: '2026-07-10', tag: 'Development' },
-  { id: 3, title: 'Lên kế hoạch nội dung Q3', description: 'Xây dựng lịch nội dung cho các kênh truyền thông.', assignee: 'u3', priority: 'Trung bình', status: 'Đang làm', due: '2026-07-12', tag: 'Marketing' },
-  { id: 4, title: 'Tối ưu tốc độ website', description: 'Kiểm tra Core Web Vitals và tối ưu tài nguyên.', assignee: 'u4', priority: 'Trung bình', status: 'Hoàn thành', due: '2026-07-03', tag: 'Development' },
-  { id: 5, title: 'Viết bài giới thiệu sản phẩm', description: 'Bài giới thiệu tính năng quản lý công việc nhóm.', assignee: 'u5', priority: 'Thấp', status: 'Cần làm', due: '2026-07-15', tag: 'Content' },
-  { id: 6, title: 'Cập nhật design system', description: 'Bổ sung component và quy chuẩn màu sắc mới.', assignee: 'u1', priority: 'Thấp', status: 'Hoàn thành', due: '2026-07-01', tag: 'Design' }
-];
 
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
+const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
-const getPerson = (id, people = PEOPLE) => people.find((person) => person.id === id) || PEOPLE[0];
+const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
 function Avatar({ person, small = false }) {
   return <span className={`avatar ${small ? 'small' : ''}`} style={{ background: person.color }}>{person.initials}</span>;
@@ -39,9 +24,9 @@ function Login({ onLogin }) {
   const [name, setName] = useState('');
   const [mssv, setMssv] = useState('');
   const [birthYear, setBirthYear] = useState('');
-  const [department, setDepartment] = useState('Ban Kỹ thuật');
-  const [email, setEmail] = useState('admin@taskflow.vn');
-  const [password, setPassword] = useState('123456');
+  const [department, setDepartment] = useState('Event');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -56,11 +41,7 @@ function Login({ onLogin }) {
         : await api.login(email, password);
       onLogin({ role: result.user.role, token: result.token, user: result.user });
     } catch (requestError) {
-      if (mode === 'login' && requestError instanceof TypeError && password === '123456' && ['admin@taskflow.vn', 'user@taskflow.vn'].includes(email)) {
-        onLogin({ role: email.startsWith('admin') ? 'admin' : 'user' });
-      } else {
-        setError(requestError.message || 'Email hoặc mật khẩu chưa đúng.');
-      }
+      setError(requestError.message || 'Email hoặc mật khẩu chưa đúng.');
     } finally {
       setLoading(false);
     }
@@ -85,7 +66,7 @@ function Login({ onLogin }) {
           <h2>{mode === 'login' ? 'Đăng nhập vào tài khoản' : 'Tạo tài khoản mới'}</h2>
           <p className="muted">{mode === 'login' ? 'Tiếp tục để quản lý công việc của bạn.' : 'Tạo tài khoản để nhận và theo dõi công việc.'}</p>
           <form onSubmit={submit}>
-            {mode === 'register' && <><label>Họ và tên</label><div className="field"><UserRound size={18} /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" required /></div><div className="register-grid"><div><label>MSSV</label><div className="field"><input value={mssv} onChange={(e) => setMssv(e.target.value)} placeholder="SE190111" required /></div></div><div><label>Năm sinh</label><div className="field"><input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number" placeholder="2005" required /></div></div></div><label>Ban</label><div className="field"><select value={department} onChange={(e) => setDepartment(e.target.value)}><option>Ban Kỹ thuật</option><option>Ban Thiết kế</option><option>Ban Truyền thông</option><option>Ban Nội dung</option></select></div></>}
+            {mode === 'register' && <><label>Họ và tên</label><div className="field"><UserRound size={18} /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" required /></div><div className="register-grid"><div><label>MSSV</label><div className="field"><input value={mssv} onChange={(e) => setMssv(e.target.value)} placeholder="SE190111" required /></div></div><div><label>Năm sinh</label><div className="field"><input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number" placeholder="2005" required /></div></div></div><label>Ban</label><div className="field"><select value={department} onChange={(e) => setDepartment(e.target.value)}>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}</select></div></> }
             <label>Email</label>
             <div className="field"><UserRound size={18} /><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" /></div>
             <div className="label-row"><label>Mật khẩu</label>{mode === 'login' && <button type="button" className="link-btn">Quên mật khẩu?</button>}</div>
@@ -94,17 +75,19 @@ function Login({ onLogin }) {
             <button className="primary login-submit" disabled={loading}>{loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} <span>→</span></button>
           </form>
           <div className="auth-switch">{mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'} <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Tạo tài khoản' : 'Đăng nhập'}</button></div>
-          {mode === 'login' && <div className="demo-box"><Sparkles size={17} /><div><strong>Tài khoản dùng thử</strong><p>Admin: admin@taskflow.vn · User: user@taskflow.vn</p><p>Mật khẩu: 123456</p></div></div>}
+
         </div>
       </section>
     </main>
   );
 }
 
-function Sidebar({ page, setPage, role, mobileOpen, close }) {
+function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
   const nav = role === 'admin'
     ? [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc', icon: ListTodo }, { id: 'users', label: 'Thành viên', icon: Users }]
     : [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc của tôi', icon: ListTodo }];
+  const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
+  const miniPerson = { initials, color: user?.color || '#73a4ff' };
   return <>
     {mobileOpen && <div className="overlay" onClick={close}></div>}
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
@@ -113,14 +96,16 @@ function Sidebar({ page, setPage, role, mobileOpen, close }) {
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Faerie Workspace</p><button>Tìm hiểu thêm</button></div>
-        <div className="mini-profile"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</span></div><MoreHorizontal size={18} /></div>
+        <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</span></div><MoreHorizontal size={18} /></div>
       </div>
     </aside>
   </>;
 }
 
-function Topbar({ title, role, onLogout, openMenu }) {
-  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Admin' : 'User'}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
+function Topbar({ title, role, onLogout, openMenu, user }) {
+  const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
+  const topPerson = { initials, color: user?.color || '#73a4ff' };
+  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{role === 'admin' ? 'Admin' : 'User'}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
 }
 
 function StatCard({ label, value, detail, icon: Icon, tone }) {
@@ -134,12 +119,17 @@ function StatusBadge({ status }) {
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, reminders, role, openCreate }) {
+function Dashboard({ tasks, people, reminders, role, openCreate, user }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
+  const now = new Date();
+  const dateLabel = now.toLocaleDateString('vi-VN', { weekday: 'long', day: '2-digit', month: '2-digit' }).toUpperCase();
+  const hour = now.getHours();
+  const greeting = hour < 12 ? 'buổi sáng' : hour < 18 ? 'buổi chiều' : 'buổi tối';
+  const firstName = user?.name ? user.name.split(' ').pop() : '';
   return <>
-    <section className="welcome-row"><div><p className="eyebrow">THỨ BẢY, 04 THÁNG 07</p><h1>Chào buổi sáng, {role === 'admin' ? 'Minh' : 'Nam'} <span>👋</span></h1><p>Đây là tình hình công việc hôm nay của {role === 'admin' ? 'đội nhóm bạn' : 'bạn'}.</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
+    <section className="welcome-row"><div><p className="eyebrow">{dateLabel}</p><h1>Chào {greeting}{firstName ? `, ${firstName}` : ''} <span>👋</span></h1><p>Đây là tình hình công việc hôm nay của {role === 'admin' ? 'đội nhóm bạn' : 'bạn'}.</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
     <section className="stats-grid">
       <StatCard label="Tổng công việc" value={visible.length} detail="trong không gian làm việc" icon={ListTodo} tone="blue" />
       <StatCard label="Đang thực hiện" value={doing} detail="cần được theo dõi" icon={Clock3} tone="orange" />
@@ -168,15 +158,16 @@ function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }
 }
 
 function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
-  const departments = ['Ban Kỹ thuật', 'Ban Thiết kế', 'Ban Truyền thông', 'Ban Nội dung'];
-  const initialDepartment = people.find((person) => person.id === defaultAssignee)?.department || departments[0];
-  const [form, setForm] = useState({ title: '', description: '', priority: 'Trung bình', due: '2026-07-10', department: initialDepartment, assignee: defaultAssignee || '', tag: 'Development' });
+  const initialDept = people.find((p) => p.id === defaultAssignee)?.department || DEPARTMENTS[0];
+  const [form, setForm] = useState({ title: '', description: '', priority: 'Trung bình', due: new Date().toISOString().slice(0, 10), department: initialDept, assignee: defaultAssignee || people[0]?.id || '', tag: 'Development' });
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
-  const filteredPeople = people.filter((person) => person.department === form.department);
+  const filteredPeople = people.filter((p) => p.department === form.department);
   const choices = filteredPeople.length ? filteredPeople : people;
   useEffect(() => {
-    if (!choices.some((person) => person.id === form.assignee)) setForm((current) => ({ ...current, assignee: choices[0]?.id || '' }));
+    if (people.length && !filteredPeople.some((p) => p.id === form.assignee)) {
+      setForm((current) => ({ ...current, assignee: filteredPeople[0]?.id || people[0]?.id || '' }));
+    }
   }, [form.department, people]);
   const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const submit = async (event) => {
@@ -201,9 +192,9 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
         {files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}
       </section>
       <aside className="panel assignment-card">
-        <div className="form-section-title"><span>02</span><div><h3>Người nhận</h3><p>Chọn Ban và thành viên.</p></div></div>
-        <label>Chọn Ban</label><select value={form.department} onChange={(e) => update('department', e.target.value)}>{departments.map((item) => <option key={item}>{item}</option>)}</select>
-        <label>Chọn thành viên</label><div className="member-options">{choices.map((person) => <label key={person.id} className={form.assignee === person.id ? 'selected' : ''}><input type="radio" name="assignee" value={person.id} checked={form.assignee === person.id} onChange={() => update('assignee', person.id)} /><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.mssv || 'Chưa có MSSV'} · {person.email}</span></div><Check size={16} /></label>)}</div>
+        <div className="form-section-title"><span>02</span><div><h3>Người nhận</h3><p>Chọn Ban và thành viên được giao việc.</p></div></div>
+        <label>Chọn Ban</label><select value={form.department} onChange={(e) => update('department', e.target.value)}>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}</select>
+        <label>Chọn thành viên</label><div className="member-options">{choices.length === 0 && <p style={{color:'#9aa3b2',fontSize:'12px',padding:'8px 0'}}>Không có thành viên nào trong ban này.</p>}{choices.map((person) => <label key={person.id} className={form.assignee === person.id ? 'selected' : ''}><input type="radio" name="assignee" value={person.id} checked={form.assignee === person.id} onChange={() => update('assignee', person.id)} /><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.mssv || 'Chưa có MSSV'} · {person.email}</span></div><Check size={16} /></label>)}</div>
         <div className="send-note"><Bell size={17} /><span>Thành viên sẽ nhận task trên hệ thống{` `}<strong>và qua email khi đã cấu hình mail.</strong></span></div>
         <button className="primary send-task-button" disabled={sending || !form.assignee}><Send size={18} />{sending ? 'Đang gửi...' : 'Send task'}</button>
       </aside>
@@ -237,38 +228,49 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
 
 function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
-  const [people, setPeople] = useState(PEOPLE);
+  const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
+  const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
   const [page, setPage] = useState('overview');
-  const [tasks, setTasks] = useState(() => { try { return JSON.parse(localStorage.getItem('taskflow-tasks')) || SEED_TASKS; } catch { return SEED_TASKS; } });
+  const [tasks, setTasks] = useState([]);
   const [defaultAssignee, setDefaultAssignee] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
-  useEffect(() => localStorage.setItem('taskflow-tasks', JSON.stringify(tasks)), [tasks]);
   useEffect(() => {
     if (!role || !getToken()) return;
     api.tasks().then(setTasks).catch(() => {});
     api.reminders().then(setReminders).catch(() => {});
     if (role === 'admin') {
-      api.users().then((users) => setPeople(users.map((user) => ({
-        ...user,
-        role: user.job || 'Thành viên',
-        initials: user.initials || user.name.slice(0, 2).toUpperCase(),
-        color: user.color || '#73a4ff'
+      api.users().then((users) => setPeople(users.map((u) => ({
+        ...u,
+        role: u.job || 'Thành viên',
+        initials: u.initials || u.name.slice(0, 2).toUpperCase(),
+        color: u.color || '#73a4ff'
       })))).catch(() => {});
     }
   }, [role]);
-  const login = ({ role: nextRole, token }) => {
+  const login = ({ role: nextRole, token, user: nextUser }) => {
     sessionStorage.setItem('taskflow-role', nextRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
+    if (nextUser) sessionStorage.setItem('taskflow-user', JSON.stringify(nextUser));
     setRole(nextRole);
+    setUser(nextUser || null);
   };
-  const logout = () => { sessionStorage.removeItem('taskflow-role'); sessionStorage.removeItem('taskflow-token'); setRole(null); setPage('overview'); };
+  const logout = () => {
+    sessionStorage.removeItem('taskflow-role');
+    sessionStorage.removeItem('taskflow-token');
+    sessionStorage.removeItem('taskflow-user');
+    setRole(null);
+    setUser(null);
+    setTasks([]);
+    setPeople([]);
+    setReminders([]);
+    setPage('overview');
+  };
   const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task' })[page], [page, role]);
   const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
   const addTask = async (task) => {
     const temporary = { ...task, id: `temp-${Date.now()}` };
     setTasks((current) => [temporary, ...current]);
-    if (!getToken()) return;
     try {
       const created = await api.createTask(task);
       setTasks((current) => current.map((item) => item.id === temporary.id ? created : item));
@@ -279,19 +281,17 @@ function App() {
   const updateTaskStatus = async (id, status) => {
     const previous = tasks.find((task) => task.id === id)?.status;
     setTasks((current) => current.map((task) => task.id === id ? { ...task, status } : task));
-    if (!getToken()) return;
     try { await api.updateTask(id, { status }); }
     catch { setTasks((current) => current.map((task) => task.id === id ? { ...task, status: previous } : task)); }
   };
   const removeTask = async (id) => {
     const previous = tasks;
     setTasks((current) => current.filter((task) => task.id !== id));
-    if (!getToken()) return;
     try { await api.deleteTask(id); }
     catch { setTasks(previous); }
   };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}</main></div></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
