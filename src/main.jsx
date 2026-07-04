@@ -14,6 +14,7 @@ import { api, getToken } from './api';
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
 const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
+const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
@@ -46,9 +47,9 @@ function Login({ onLogin }) {
   return (
     <main className="login-shell">
       <section className="login-brand">
-        <div className="brand-lockup"><span className="brand-mark"><Check size={20} strokeWidth={3} /></span><span>Faerie Workspace</span></div>
+        <div className="brand-lockup"><span className="brand-mark"><img src={LOGO_URL} alt="Faerie" /></span><span>Faerie Workspace</span></div>
         <div className="brand-message">
-          <div className="brand-art"><span className="art-card one"></span><span className="art-card two"></span><span className="art-check"><Check size={44} strokeWidth={2.8} /></span></div>
+          <div className="brand-art"><span className="art-card one"></span><span className="art-card two"></span><span className="art-check"><img src={LOGO_URL} alt="Faerie emblem" /></span></div>
           <p className="eyebrow light">LÀM VIỆC THÔNG MINH HƠN</p>
           <h1>Mọi công việc.<br />Một nơi duy nhất.</h1>
           <p>Giao việc rõ ràng, theo dõi tiến độ dễ dàng và cùng đội nhóm hoàn thành mục tiêu.</p>
@@ -57,7 +58,7 @@ function Login({ onLogin }) {
       </section>
       <section className="login-panel">
         <div className="login-card">
-          <div className="mobile-brand"><span className="brand-mark"><Check size={18} strokeWidth={3} /></span> Faerie Workspace</div>
+          <div className="mobile-brand"><span className="brand-mark"><img src={LOGO_URL} alt="Faerie" /></span> Faerie Workspace</div>
           <p className="eyebrow">CHÀO MỪNG TRỞ LẠI</p>
           <h2>Đăng nhập vào tài khoản</h2>
           <p className="muted">Tiếp tục để quản lý công việc của bạn.</p>
@@ -84,7 +85,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
   return <>
     {mobileOpen && <div className="overlay" onClick={close}></div>}
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
-      <div className="sidebar-brand"><span className="brand-mark"><Check size={19} strokeWidth={3} /></span><span>Faerie Workspace</span><button className="sidebar-close" onClick={close}><X /></button></div>
+      <div className="sidebar-brand"><span className="brand-mark"><img src={LOGO_URL} alt="Faerie" /></span><span>Faerie Workspace</span><button className="sidebar-close" onClick={close}><X /></button></div>
       <p className="nav-title">KHÔNG GIAN LÀM VIỆC</p>
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
@@ -289,7 +290,7 @@ function App() {
   useEffect(() => {
     if (!role || !getToken()) return;
     api.tasks().then(setTasks).catch(() => {});
-    api.reminders().then(setReminders).catch(() => {});
+    api.reminders().then((items) => setReminders(items.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)))).catch(() => {});
     if (role === 'admin') {
       api.users().then((users) => setPeople(users.map((u) => ({
         ...u,

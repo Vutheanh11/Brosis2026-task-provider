@@ -10,7 +10,8 @@ h1, h2, h3, .brand-lockup, .sidebar-brand { font-family: 'Manrope', sans-serif; 
 .muted { color: #7b8498; }
 .eyebrow { color: #155e75; font-size: 11px; font-weight: 800; letter-spacing: 1.8px; margin-bottom: 10px; }
 .eyebrow.light { color: #84adff; }
-.brand-mark { width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center; color: #fff; background: #155e75; border-radius: 10px; box-shadow: 0 7px 16px #0b25305c; }
+.brand-mark { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; background: transparent; flex: 0 0 auto; }
+.brand-mark img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 6px 10px #00151d70); }
 .primary, .secondary { border-radius: 10px; height: 42px; padding: 0 18px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; border: 1px solid transparent; }
 .primary { color: #fff; background: #164e63; box-shadow: 0 8px 18px #164e6330; }
 .primary:hover { background: #0f3f52; transform: translateY(-1px); }
@@ -28,7 +29,8 @@ h1, h2, h3, .brand-lockup, .sidebar-brand { font-family: 'Manrope', sans-serif; 
 .art-card { position: absolute; width: 140px; height: 105px; border: 1px solid #ffffff24; border-radius: 18px; background: #ffffff0d; backdrop-filter: blur(4px); }
 .art-card.one { left: 16px; top: 18px; transform: rotate(-9deg); }
 .art-card.two { left: 105px; top: 11px; transform: rotate(8deg); }
-.art-check { position: absolute; left: 75px; top: 34px; width: 84px; height: 84px; border-radius: 50%; display: grid; place-items: center; background: #155e75; box-shadow: 0 18px 40px #07112780; }
+.art-check { position: absolute; left: 55px; top: 0; width: 140px; height: 140px; display: grid; place-items: center; }
+.art-check img { width: 100%; height: 100%; object-fit: contain; filter: drop-shadow(0 18px 30px #020d1280); }
 .login-copyright { color: #8f9fba; font-size: 12px; z-index: 1; margin: 0; }
 .login-panel { display: grid; place-items: center; padding: 40px; }
 .login-card { width: min(420px, 100%); }
@@ -58,7 +60,7 @@ h1, h2, h3, .brand-lockup, .sidebar-brand { font-family: 'Manrope', sans-serif; 
 .app-shell { min-height: 100vh; }
 .sidebar { width: 276px; background: #0b2530; color: #fff; position: fixed; inset: 0 auto 0 0; z-index: 30; padding: 27px 18px 20px; display: flex; flex-direction: column; }
 .sidebar-brand { height: 54px; padding: 0 8px; display: flex; gap: 11px; align-items: center; font-size: 20px; font-weight: 800; }
-.sidebar .brand-mark { width: 31px; height: 31px; border-radius: 9px; }
+.sidebar .brand-mark { width: 46px; height: 46px; }
 .sidebar-close { display: none; margin-left: auto; color: #fff; border: 0; background: transparent; }
 .nav-title { color: #6f7e99; font-size: 9px; font-weight: 800; letter-spacing: 1.5px; margin: 31px 12px 10px; }
 .sidebar nav { display: grid; gap: 5px; }
