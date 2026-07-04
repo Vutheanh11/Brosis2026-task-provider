@@ -245,3 +245,12 @@ td { font-size: 14px; padding-top: 16px; padding-bottom: 16px; }
 .compact-table td, .all-task-report td { font-size: 13px; }
 .compact-table th, .member-report th, .all-task-report th { font-size: 12px; }
 .metric-pill, .warning-level, .by-badge { font-size: 11px; }
+
+/* Role badges */
+.role-badge { display: inline-flex; align-items: center; padding: 4px 9px; border-radius: 20px; font-size: 10px; font-weight: 700; white-space: nowrap; }
+.role-member        { background: #f0f3f7; color: #5c6b85; }
+.role-mentor        { background: #f1eaff; color: #7540c8; }
+.role-supporter     { background: #e8f7f0; color: #1e835f; }
+.role-sub-leader    { background: #e8f1ff; color: #2563b8; }
+.role-leader-ban    { background: #fff2e3; color: #c47318; }
+.role-leader        { background: #ffe8eb; color: #c0323f; }
