@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import {
-  Bell, CalendarDays, Check, CheckCircle2, ChevronDown, Circle,
+  Bell, CalendarDays, Check, CheckCircle2, Circle,
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
   MoreHorizontal, Plus, Search, ShieldCheck, Sparkles, Trash2,
   UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip
@@ -20,11 +20,6 @@ function Avatar({ person, small = false }) {
 }
 
 function Login({ onLogin }) {
-  const [mode, setMode] = useState('login');
-  const [name, setName] = useState('');
-  const [mssv, setMssv] = useState('');
-  const [birthYear, setBirthYear] = useState('');
-  const [department, setDepartment] = useState('Event');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
@@ -36,9 +31,7 @@ function Login({ onLogin }) {
     setError('');
     setLoading(true);
     try {
-      const result = mode === 'register'
-        ? await api.register({ name, email, password, mssv, birthYear, department })
-        : await api.login(email, password);
+      const result = await api.login(email, password);
       onLogin({ role: result.user.role, token: result.token, user: result.user });
     } catch (requestError) {
       setError(requestError.message || 'Email hoặc mật khẩu chưa đúng.');
@@ -62,20 +55,17 @@ function Login({ onLogin }) {
       <section className="login-panel">
         <div className="login-card">
           <div className="mobile-brand"><span className="brand-mark"><Check size={18} strokeWidth={3} /></span> Faerie Workspace</div>
-          <p className="eyebrow">{mode === 'login' ? 'CHÀO MỪNG TRỞ LẠI' : 'THAM GIA FAERIE WORKSPACE'}</p>
-          <h2>{mode === 'login' ? 'Đăng nhập vào tài khoản' : 'Tạo tài khoản mới'}</h2>
-          <p className="muted">{mode === 'login' ? 'Tiếp tục để quản lý công việc của bạn.' : 'Tạo tài khoản để nhận và theo dõi công việc.'}</p>
+          <p className="eyebrow">CHÀO MỪNG TRỞ LẠI</p>
+          <h2>Đăng nhập vào tài khoản</h2>
+          <p className="muted">Tiếp tục để quản lý công việc của bạn.</p>
           <form onSubmit={submit}>
-            {mode === 'register' && <><label>Họ và tên</label><div className="field"><UserRound size={18} /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" required /></div><div className="register-grid"><div><label>MSSV</label><div className="field"><input value={mssv} onChange={(e) => setMssv(e.target.value)} placeholder="SE190111" required /></div></div><div><label>Năm sinh</label><div className="field"><input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number" placeholder="2005" required /></div></div></div><label>Ban</label><div className="field"><select value={department} onChange={(e) => setDepartment(e.target.value)}>{DEPARTMENTS.map(d => <option key={d}>{d}</option>)}</select></div></> }
             <label>Email</label>
-            <div className="field"><UserRound size={18} /><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" /></div>
-            <div className="label-row"><label>Mật khẩu</label>{mode === 'login' && <button type="button" className="link-btn">Quên mật khẩu?</button>}</div>
-            <div className="field"><ShieldCheck size={18} /><input value={password} onChange={(e) => setPassword(e.target.value)} type={show ? 'text' : 'password'} /><button type="button" className="icon-button" onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
+            <div className="field"><UserRound size={18} /><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" required /></div>
+            <div className="label-row"><label>Mật khẩu</label></div>
+            <div className="field"><ShieldCheck size={18} /><input value={password} onChange={(e) => setPassword(e.target.value)} type={show ? 'text' : 'password'} required /><button type="button" className="icon-button" onClick={() => setShow(!show)}>{show ? <EyeOff size={18} /> : <Eye size={18} />}</button></div>
             {error && <p className="form-error">{error}</p>}
-            <button className="primary login-submit" disabled={loading}>{loading ? 'Đang xử lý...' : mode === 'login' ? 'Đăng nhập' : 'Tạo tài khoản'} <span>→</span></button>
+            <button className="primary login-submit" disabled={loading}>{loading ? 'Đang xử lý...' : 'Đăng nhập'} <span>→</span></button>
           </form>
-          <div className="auth-switch">{mode === 'login' ? 'Chưa có tài khoản?' : 'Đã có tài khoản?'} <button onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(''); }}>{mode === 'login' ? 'Tạo tài khoản' : 'Đăng nhập'}</button></div>
-
         </div>
       </section>
     </main>
