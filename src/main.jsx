@@ -89,7 +89,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Faerie Workspace</p><button>Tìm hiểu thêm</button></div>
-        <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Quản trị viên' : 'Thành viên')}</span></div><MoreHorizontal size={18} /></div>
+        <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Quản trị viên' : 'Thành viên')}</span></div><button className="profile-menu" onClick={() => { setPage('profile'); close(); }} title="Mở trang tài khoản"><MoreHorizontal size={18} /></button></div>
       </div>
     </aside>
   </>;
@@ -112,7 +112,7 @@ function StatusBadge({ status }) {
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, reminders, role, openCreate, user }) {
+function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminders, user }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
@@ -133,7 +133,7 @@ function Dashboard({ tasks, people, reminders, role, openCreate, user }) {
       <div className="panel activity-panel"><div className="panel-header"><div><h3>Công việc gần đây</h3><p>Tiến độ mới nhất của đội nhóm</p></div><button className="text-action">Xem tất cả →</button></div><div className="recent-list">{visible.slice(0, 5).map(task => { const person = getPerson(task.assignee, people); return <div className="recent-item" key={task.id}><div className="task-check">{task.status === 'Hoàn thành' ? <Check size={15} /> : null}</div><div className="recent-copy"><strong className={task.status === 'Hoàn thành' ? 'done' : ''}>{task.title}</strong><span>{task.tag} · Hạn {fmtDate(task.due)}</span></div><Avatar person={person} small /><StatusBadge status={task.status} /></div>; })}</div></div>
       <div className="panel progress-panel"><div className="panel-header"><div><h3>Tiến độ tổng quan</h3><p>Theo trạng thái công việc</p></div></div><div className="donut-wrap"><div className="donut" style={{ '--pct': `${visible.length ? completed / visible.length * 100 : 0}%` }}><div><strong>{visible.length ? Math.round(completed / visible.length * 100) : 0}%</strong><span>Hoàn thành</span></div></div></div><div className="legend">{STATUS.map((status, index) => <div key={status}><span className={`legend-dot dot-${index}`}></span><span>{status}</span><strong>{visible.filter(t => t.status === status).length}</strong></div>)}</div></div>
     </section>
-    {role === 'admin' && <AdminInsights tasks={tasks} people={people} reminders={reminders} />}
+    {role === 'admin' && <AdminInsights tasks={tasks} people={people} reminders={reminders} onClearReminders={onClearReminders} />}
   </>;
 }
 
@@ -195,14 +195,14 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
   </>;
 }
 
-function AdminInsights({ tasks, people, reminders }) {
+function AdminInsights({ tasks, people, reminders, onClearReminders }) {
   const now = new Date();
   const activeTasks = tasks.filter((task) => task.status !== 'Hoàn thành');
   const deadlines = [...activeTasks].sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 6);
   const daysLeft = (date) => Math.ceil((new Date(`${date}T23:59:59`) - now) / 86400000);
   return <section className="admin-insights">
     <div className="panel deadline-panel"><div className="panel-header"><div><h3>Timeline & deadline</h3><p>Công việc cần ưu tiên theo thời hạn</p></div><CalendarDays size={19} /></div><div className="timeline-list">{deadlines.map((task) => { const days = daysLeft(task.due); return <div key={task.id} className={`timeline-item ${days < 0 ? 'overdue' : days <= 3 ? 'urgent' : ''}`}><span className="timeline-line"></span><div className="timeline-date"><strong>{fmtDate(task.due)}</strong><span>{days < 0 ? `Quá ${Math.abs(days)} ngày` : days === 0 ? 'Hôm nay' : `Còn ${days} ngày`}</span></div><div className="timeline-copy"><strong>{task.title}</strong><span>{getPerson(task.assignee, people).name} · {task.department || task.tag}</span></div><Priority value={task.priority} /></div>; })}{deadlines.length === 0 && <div className="empty"><CheckCircle2 /><strong>Không có deadline đang chờ</strong></div>}</div></div>
-    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc điều hành</h3><p>Từ Mentor, Supporter và Leader</p></div><Bell size={19} /></div><div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase()}`}>{item.byWho}</span></td></tr>)}</tbody></table></div></div>
+    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc điều hành</h3><p>Từ Mentor, Supporter và Leader</p></div><button className="clear-reminders" onClick={onClearReminders} disabled={!reminders.length}><Trash2 size={15} /> Xóa lời nhắc</button></div><div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase()}`}>{item.byWho}</span></td></tr>)}</tbody></table>{!reminders.length && <div className="empty compact-empty"><Bell size={22} /><strong>Không có lời nhắc</strong></div>}</div></div>
     <div className="panel member-report"><div className="panel-header"><div><h3>Thống kê toàn bộ thành viên</h3><p>Khối lượng công việc và mức cảnh báo</p></div><Users size={19} /></div><div className="table-scroll"><table><thead><tr><th>MSSV</th><th>HỌ VÀ TÊN</th><th>CHỨC VỤ</th><th>NĂM SINH</th><th>EMAIL</th><th>TASK ON DOING</th><th>TASK OVERDUE</th><th>WARNING</th></tr></thead><tbody>{people.map((person) => { const memberTasks = tasks.filter((task) => task.assignee === person.id); const doing = memberTasks.filter((task) => task.status === 'Đang làm').length; const overdue = memberTasks.filter((task) => task.status !== 'Hoàn thành' && daysLeft(task.due) < 0).length; const warnings = Number(person.warnings) || 0; return <tr key={person.id}><td><strong>{person.mssv || '—'}</strong></td><td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.department}</span></div></div></td><td><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span></td><td>{person.birthYear || '—'}</td><td>{person.email}</td><td><span className="metric-pill doing">{doing}</span></td><td><span className={`metric-pill ${overdue ? 'overdue' : ''}`}>{overdue}</span></td><td><span className={`warning-level warning-${Math.min(warnings, 3)}`}><AlertTriangle size={14} />{warnings} lần</span></td></tr>; })}</tbody></table></div></div>
     <div className="panel all-task-report"><div className="panel-header"><div><h3>List all task</h3><p>Toàn bộ công việc trong hệ thống</p></div><ListTodo size={19} /></div><div className="table-scroll"><table><thead><tr><th>TASK</th><th>THÀNH VIÊN</th><th>BAN</th><th>DEADLINE</th><th>TRẠNG THÁI</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id}><td><strong>{task.title}</strong></td><td>{getPerson(task.assignee, people).name}</td><td>{task.department || task.tag}</td><td>{fmtDate(task.due)}</td><td><StatusBadge status={task.status} /></td></tr>)}</tbody></table></div></div>
   </section>;
@@ -217,6 +217,34 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
   const submit = (e) => { e.preventDefault(); if (!form.title.trim()) return; addTask(form); close(); };
   return <div className="modal-backdrop" onMouseDown={close}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CÔNG VIỆC MỚI</p><h2>Giao công việc</h2><p>Chỉ định người phụ trách và thiết lập thông tin.</p></div><button className="modal-close" onClick={close}><X /></button></div><form onSubmit={submit}><label>Tên công việc</label><input autoFocus value={form.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Hoàn thiện báo cáo tháng..." required /><label>Mô tả</label><textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Mô tả ngắn gọn yêu cầu công việc" rows="3"></textarea><div className="form-grid"><div><label>Giao cho</label><select value={form.assignee} onChange={e => update('assignee', e.target.value)}>{people.map(p => <option key={p.id} value={p.id}>{p.name} — {p.role}</option>)}</select></div><div><label>Hạn hoàn thành</label><input type="date" value={form.due} onChange={e => update('due', e.target.value)} /></div><div><label>Mức ưu tiên</label><select value={form.priority} onChange={e => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Nhóm công việc</label><select value={form.tag} onChange={e => update('tag', e.target.value)}><option>Development</option><option>Design</option><option>Marketing</option><option>Content</option></select></div></div><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Hủy</button><button className="primary"><Plus size={18} /> Giao công việc</button></div></form></div></div>;
+}
+
+function ProfilePage({ user, onUpdated }) {
+  const [email, setEmail] = useState(user?.email || '');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+  const [saving, setSaving] = useState(false);
+  const submit = async (event) => {
+    event.preventDefault(); setError(''); setMessage('');
+    if (password && password !== confirmPassword) return setError('Mật khẩu xác nhận chưa khớp.');
+    const changes = {};
+    if (email !== user?.email) changes.email = email;
+    if (password) changes.password = password;
+    if (!Object.keys(changes).length) return setError('Bạn chưa thay đổi email hoặc mật khẩu.');
+    setSaving(true);
+    try { const updated = await api.updateProfile(changes); onUpdated(updated); setPassword(''); setConfirmPassword(''); setMessage('Đã cập nhật tài khoản thành công.'); }
+    catch (requestError) { setError(requestError.message); }
+    finally { setSaving(false); }
+  };
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">TÀI KHOẢN</p><h1>Thông tin cá nhân</h1><p>Bạn có thể đổi email và mật khẩu đăng nhập.</p></div></section>
+    <section className="profile-layout">
+      <article className="panel profile-summary"><Avatar person={{ initials: user?.initials || user?.name?.slice(0, 2).toUpperCase() || '?', color: user?.color || '#73a4ff' }} /><h2>{user?.name}</h2><p>{user?.mssv || 'Chưa có MSSV'}</p><div className="locked-info"><div><span>Role / Chức vụ</span><strong>{user?.job || user?.role || 'Member'}</strong><small>Không thể thay đổi</small></div><div><span>Department</span><strong>{user?.department || 'Chưa phân ban'}</strong><small>Không thể thay đổi</small></div></div></article>
+      <form className="panel profile-form" onSubmit={submit}><div className="settings-heading"><span><UserRound size={20} /></span><div><h3>Thông tin đăng nhập</h3><p>Role và Department được quản lý bởi quản trị viên.</p></div></div><label>Email</label><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /><label>Mật khẩu mới <small>(để trống nếu không đổi)</small></label><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength="6" placeholder="Tối thiểu 6 ký tự" /><label>Xác nhận mật khẩu mới</label><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength="6" placeholder="Nhập lại mật khẩu" />{error && <p className="profile-message error">{error}</p>}{message && <p className="profile-message success">{message}</p>}<button className="primary profile-save" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></form>
+    </section>
+  </>;
 }
 
 function SettingsPage({ theme, setTheme, fontSize, setFontSize }) {
@@ -289,7 +317,7 @@ function App() {
     setReminders([]);
     setPage('overview');
   };
-  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt' })[page], [page, role]);
+  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
   const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
   const addTask = async (task) => {
     const temporary = { ...task, id: `temp-${Date.now()}` };
@@ -313,8 +341,16 @@ function App() {
     try { await api.deleteTask(id); }
     catch { setTasks(previous); }
   };
+  const clearReminders = async () => {
+    if (!window.confirm('Xóa toàn bộ lời nhắc hiện tại?')) return;
+    try { await api.clearReminders(); setReminders([]); } catch {}
+  };
+  const updateCurrentUser = (updated) => {
+    setUser(updated);
+    sessionStorage.setItem('taskflow-user', JSON.stringify(updated));
+  };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} />}</main></div></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

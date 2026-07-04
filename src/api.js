@@ -20,9 +20,11 @@ async function request(path, options = {}) {
 
 export const api = {
   login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
+  updateProfile: (changes) => request('/profile', { method: 'PATCH', body: JSON.stringify(changes) }),
   register: (details) => request('/auth/register', { method: 'POST', body: JSON.stringify(details) }),
   users: () => request('/users'),
   reminders: () => request('/reminders'),
+  clearReminders: () => request('/reminders', { method: 'DELETE' }),
   tasks: () => request('/tasks'),
   createTask: (task) => request('/tasks', { method: 'POST', body: JSON.stringify(task) }),
   updateTask: (id, changes) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
