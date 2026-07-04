@@ -4,7 +4,7 @@ import {
   Bell, CalendarDays, Check, CheckCircle2, ChevronDown, Circle,
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
   MoreHorizontal, Plus, Search, ShieldCheck, Sparkles, Trash2,
-  UserRound, Users, X
+  UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip
 } from 'lucide-react';
 import './styles.css';
 import { api, getToken } from './api';
@@ -37,6 +37,9 @@ function Avatar({ person, small = false }) {
 function Login({ onLogin }) {
   const [mode, setMode] = useState('login');
   const [name, setName] = useState('');
+  const [mssv, setMssv] = useState('');
+  const [birthYear, setBirthYear] = useState('');
+  const [department, setDepartment] = useState('Ban Kỹ thuật');
   const [email, setEmail] = useState('admin@taskflow.vn');
   const [password, setPassword] = useState('123456');
   const [show, setShow] = useState(false);
@@ -49,7 +52,7 @@ function Login({ onLogin }) {
     setLoading(true);
     try {
       const result = mode === 'register'
-        ? await api.register(name, email, password)
+        ? await api.register({ name, email, password, mssv, birthYear, department })
         : await api.login(email, password);
       onLogin({ role: result.user.role, token: result.token, user: result.user });
     } catch (requestError) {
@@ -82,7 +85,7 @@ function Login({ onLogin }) {
           <h2>{mode === 'login' ? 'Đăng nhập vào tài khoản' : 'Tạo tài khoản mới'}</h2>
           <p className="muted">{mode === 'login' ? 'Tiếp tục để quản lý công việc của bạn.' : 'Tạo tài khoản để nhận và theo dõi công việc.'}</p>
           <form onSubmit={submit}>
-            {mode === 'register' && <><label>Họ và tên</label><div className="field"><UserRound size={18} /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" required /></div></>}
+            {mode === 'register' && <><label>Họ và tên</label><div className="field"><UserRound size={18} /><input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nguyễn Văn A" required /></div><div className="register-grid"><div><label>MSSV</label><div className="field"><input value={mssv} onChange={(e) => setMssv(e.target.value)} placeholder="SE190111" required /></div></div><div><label>Năm sinh</label><div className="field"><input value={birthYear} onChange={(e) => setBirthYear(e.target.value)} type="number" placeholder="2005" required /></div></div></div><label>Ban</label><div className="field"><select value={department} onChange={(e) => setDepartment(e.target.value)}><option>Ban Kỹ thuật</option><option>Ban Thiết kế</option><option>Ban Truyền thông</option><option>Ban Nội dung</option></select></div></>}
             <label>Email</label>
             <div className="field"><UserRound size={18} /><input value={email} onChange={(e) => setEmail(e.target.value)} type="email" placeholder="you@company.com" /></div>
             <div className="label-row"><label>Mật khẩu</label>{mode === 'login' && <button type="button" className="link-btn">Quên mật khẩu?</button>}</div>
@@ -107,7 +110,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close }) {
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
       <div className="sidebar-brand"><span className="brand-mark"><Check size={19} strokeWidth={3} /></span><span>taskflow</span><button className="sidebar-close" onClick={close}><X /></button></div>
       <p className="nav-title">KHÔNG GIAN LÀM VIỆC</p>
-      <nav>{nav.map((item) => <button key={item.id} className={page === item.id ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
+      <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Taskflow</p><button>Tìm hiểu thêm</button></div>
         <div className="mini-profile"><Avatar person={role === 'admin' ? PEOPLE[0] : PEOPLE[1]} small /><div><strong>{role === 'admin' ? 'Nguyễn Minh' : 'Hoàng Nam'}</strong><span>{role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</span></div><MoreHorizontal size={18} /></div>
@@ -131,7 +134,7 @@ function StatusBadge({ status }) {
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, role, openCreate }) {
+function Dashboard({ tasks, people, reminders, role, openCreate }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
@@ -147,6 +150,7 @@ function Dashboard({ tasks, people, role, openCreate }) {
       <div className="panel activity-panel"><div className="panel-header"><div><h3>Công việc gần đây</h3><p>Tiến độ mới nhất của đội nhóm</p></div><button className="text-action">Xem tất cả →</button></div><div className="recent-list">{visible.slice(0, 5).map(task => { const person = getPerson(task.assignee, people); return <div className="recent-item" key={task.id}><div className="task-check">{task.status === 'Hoàn thành' ? <Check size={15} /> : null}</div><div className="recent-copy"><strong className={task.status === 'Hoàn thành' ? 'done' : ''}>{task.title}</strong><span>{task.tag} · Hạn {fmtDate(task.due)}</span></div><Avatar person={person} small /><StatusBadge status={task.status} /></div>; })}</div></div>
       <div className="panel progress-panel"><div className="panel-header"><div><h3>Tiến độ tổng quan</h3><p>Theo trạng thái công việc</p></div></div><div className="donut-wrap"><div className="donut" style={{ '--pct': `${visible.length ? completed / visible.length * 100 : 0}%` }}><div><strong>{visible.length ? Math.round(completed / visible.length * 100) : 0}%</strong><span>Hoàn thành</span></div></div></div><div className="legend">{STATUS.map((status, index) => <div key={status}><span className={`legend-dot dot-${index}`}></span><span>{status}</span><strong>{visible.filter(t => t.status === status).length}</strong></div>)}</div></div>
     </section>
+    {role === 'admin' && <AdminInsights tasks={tasks} people={people} reminders={reminders} />}
   </>;
 }
 
@@ -163,6 +167,63 @@ function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }
   </>;
 }
 
+function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
+  const departments = ['Ban Kỹ thuật', 'Ban Thiết kế', 'Ban Truyền thông', 'Ban Nội dung'];
+  const initialDepartment = people.find((person) => person.id === defaultAssignee)?.department || departments[0];
+  const [form, setForm] = useState({ title: '', description: '', priority: 'Trung bình', due: '2026-07-10', department: initialDepartment, assignee: defaultAssignee || '', tag: 'Development' });
+  const [files, setFiles] = useState([]);
+  const [sending, setSending] = useState(false);
+  const filteredPeople = people.filter((person) => person.department === form.department);
+  const choices = filteredPeople.length ? filteredPeople : people;
+  useEffect(() => {
+    if (!choices.some((person) => person.id === form.assignee)) setForm((current) => ({ ...current, assignee: choices[0]?.id || '' }));
+  }, [form.department, people]);
+  const update = (key, value) => setForm((current) => ({ ...current, [key]: value }));
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!form.assignee) return;
+    setSending(true);
+    await onSubmit({ ...form, status: 'Cần làm', attachments: files.map((file) => ({ name: file.name, size: file.size })) });
+    setSending(false);
+    onCancel();
+  };
+  const addFiles = (event) => setFiles((current) => [...current, ...Array.from(event.target.files || [])].slice(0, 20));
+  return <>
+    <section className="page-heading"><div><p className="eyebrow">ADMIN · GIAO VIỆC</p><h1>Tạo task mới</h1><p>Thiết lập yêu cầu, deadline và gửi đến đúng thành viên.</p></div><button className="secondary" onClick={onCancel}>← Quay lại</button></section>
+    <form className="create-task-layout" onSubmit={submit}>
+      <section className="panel task-form-card">
+        <div className="form-section-title"><span>01</span><div><h3>Thông tin công việc</h3><p>Nội dung và kết quả cần hoàn thành.</p></div></div>
+        <label>Task</label><input value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Nhập tên công việc" required />
+        <label>Mô tả chi tiết</label><textarea value={form.description} onChange={(e) => update('description', e.target.value)} rows="6" placeholder="Mô tả yêu cầu, tiêu chí hoàn thành..." />
+        <div className="form-grid"><div><label>Độ ưu tiên</label><select value={form.priority} onChange={(e) => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Last date</label><input type="date" value={form.due} onChange={(e) => update('due', e.target.value)} required /></div></div>
+        <label>Upload ảnh / folder / ZIP <span className="optional">(giả lập)</span></label>
+        <label className="upload-zone"><Upload size={24} /><strong>Chọn file hoặc kéo thả vào đây</strong><span>Ảnh, tài liệu, ZIP · tối đa 20 file</span><input type="file" multiple accept="image/*,.zip,.rar,.7z,.pdf,.doc,.docx" onChange={addFiles} /></label>
+        {files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}
+      </section>
+      <aside className="panel assignment-card">
+        <div className="form-section-title"><span>02</span><div><h3>Người nhận</h3><p>Chọn Ban và thành viên.</p></div></div>
+        <label>Chọn Ban</label><select value={form.department} onChange={(e) => update('department', e.target.value)}>{departments.map((item) => <option key={item}>{item}</option>)}</select>
+        <label>Chọn thành viên</label><div className="member-options">{choices.map((person) => <label key={person.id} className={form.assignee === person.id ? 'selected' : ''}><input type="radio" name="assignee" value={person.id} checked={form.assignee === person.id} onChange={() => update('assignee', person.id)} /><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.mssv || 'Chưa có MSSV'} · {person.email}</span></div><Check size={16} /></label>)}</div>
+        <div className="send-note"><Bell size={17} /><span>Thành viên sẽ nhận task trên hệ thống{` `}<strong>và qua email khi đã cấu hình mail.</strong></span></div>
+        <button className="primary send-task-button" disabled={sending || !form.assignee}><Send size={18} />{sending ? 'Đang gửi...' : 'Send task'}</button>
+      </aside>
+    </form>
+  </>;
+}
+
+function AdminInsights({ tasks, people, reminders }) {
+  const now = new Date();
+  const activeTasks = tasks.filter((task) => task.status !== 'Hoàn thành');
+  const deadlines = [...activeTasks].sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 6);
+  const daysLeft = (date) => Math.ceil((new Date(`${date}T23:59:59`) - now) / 86400000);
+  return <section className="admin-insights">
+    <div className="panel deadline-panel"><div className="panel-header"><div><h3>Timeline & deadline</h3><p>Công việc cần ưu tiên theo thời hạn</p></div><CalendarDays size={19} /></div><div className="timeline-list">{deadlines.map((task) => { const days = daysLeft(task.due); return <div key={task.id} className={`timeline-item ${days < 0 ? 'overdue' : days <= 3 ? 'urgent' : ''}`}><span className="timeline-line"></span><div className="timeline-date"><strong>{fmtDate(task.due)}</strong><span>{days < 0 ? `Quá ${Math.abs(days)} ngày` : days === 0 ? 'Hôm nay' : `Còn ${days} ngày`}</span></div><div className="timeline-copy"><strong>{task.title}</strong><span>{getPerson(task.assignee, people).name} · {task.department || task.tag}</span></div><Priority value={task.priority} /></div>; })}{deadlines.length === 0 && <div className="empty"><CheckCircle2 /><strong>Không có deadline đang chờ</strong></div>}</div></div>
+    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc điều hành</h3><p>Từ Mentor, Supporter và Leader</p></div><Bell size={19} /></div><div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase()}`}>{item.byWho}</span></td></tr>)}</tbody></table></div></div>
+    <div className="panel member-report"><div className="panel-header"><div><h3>Thống kê toàn bộ thành viên</h3><p>Khối lượng công việc và mức cảnh báo</p></div><Users size={19} /></div><div className="table-scroll"><table><thead><tr><th>MSSV</th><th>HỌ VÀ TÊN</th><th>NĂM SINH</th><th>EMAIL</th><th>TASK ON DOING</th><th>TASK OVERDUE</th><th>WARNING</th></tr></thead><tbody>{people.map((person) => { const memberTasks = tasks.filter((task) => task.assignee === person.id); const doing = memberTasks.filter((task) => task.status === 'Đang làm').length; const overdue = memberTasks.filter((task) => task.status !== 'Hoàn thành' && daysLeft(task.due) < 0).length; const warnings = Number(person.warnings) || 0; return <tr key={person.id}><td><strong>{person.mssv || '—'}</strong></td><td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.department}</span></div></div></td><td>{person.birthYear || '—'}</td><td>{person.email}</td><td><span className="metric-pill doing">{doing}</span></td><td><span className={`metric-pill ${overdue ? 'overdue' : ''}`}>{overdue}</span></td><td><span className={`warning-level warning-${Math.min(warnings, 3)}`}><AlertTriangle size={14} />{warnings} lần</span></td></tr>; })}</tbody></table></div></div>
+    <div className="panel all-task-report"><div className="panel-header"><div><h3>List all task</h3><p>Toàn bộ công việc trong hệ thống</p></div><ListTodo size={19} /></div><div className="table-scroll"><table><thead><tr><th>TASK</th><th>THÀNH VIÊN</th><th>BAN</th><th>DEADLINE</th><th>TRẠNG THÁI</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id}><td><strong>{task.title}</strong></td><td>{getPerson(task.assignee, people).name}</td><td>{task.department || task.tag}</td><td>{fmtDate(task.due)}</td><td><StatusBadge status={task.status} /></td></tr>)}</tbody></table></div></div>
+  </section>;
+}
+
 function UsersPage({ tasks, people, onAssign }) {
   return <><section className="page-heading"><div><p className="eyebrow">ĐỘI NGŨ</p><h1>Thành viên</h1><p>Quản lý thành viên và giao công việc trực tiếp.</p></div><button className="secondary"><Plus size={18} /> Mời thành viên</button></section><section className="users-grid">{people.map(person => { const assigned = tasks.filter(t => t.assignee === person.id); const done = assigned.filter(t => t.status === 'Hoàn thành').length; return <article className="user-card" key={person.id}><div className="user-card-top"><Avatar person={person} /><button><MoreHorizontal /></button></div><h3>{person.name}</h3><p>{person.role}</p><span className="user-email">{person.email}</span><div className="user-progress"><div><span>Tiến độ công việc</span><strong>{assigned.length ? Math.round(done / assigned.length * 100) : 0}%</strong></div><div className="progress-track"><span style={{ width: `${assigned.length ? done / assigned.length * 100 : 0}%` }}></span></div></div><div className="user-card-footer"><span><strong>{assigned.length}</strong> công việc</span><button onClick={() => onAssign(person.id)}>Giao việc →</button></div></article>; })}</section></>;
 }
@@ -177,15 +238,16 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
 function App() {
   const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
   const [people, setPeople] = useState(PEOPLE);
+  const [reminders, setReminders] = useState([]);
   const [page, setPage] = useState('overview');
   const [tasks, setTasks] = useState(() => { try { return JSON.parse(localStorage.getItem('taskflow-tasks')) || SEED_TASKS; } catch { return SEED_TASKS; } });
-  const [modal, setModal] = useState(false);
   const [defaultAssignee, setDefaultAssignee] = useState('');
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => localStorage.setItem('taskflow-tasks', JSON.stringify(tasks)), [tasks]);
   useEffect(() => {
     if (!role || !getToken()) return;
     api.tasks().then(setTasks).catch(() => {});
+    api.reminders().then(setReminders).catch(() => {});
     if (role === 'admin') {
       api.users().then((users) => setPeople(users.map((user) => ({
         ...user,
@@ -201,8 +263,8 @@ function App() {
     setRole(nextRole);
   };
   const logout = () => { sessionStorage.removeItem('taskflow-role'); sessionStorage.removeItem('taskflow-token'); setRole(null); setPage('overview'); };
-  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên' })[page], [page, role]);
-  const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setModal(true); };
+  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task' })[page], [page, role]);
+  const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
   const addTask = async (task) => {
     const temporary = { ...task, id: `temp-${Date.now()}` };
     setTasks((current) => [temporary, ...current]);
@@ -229,7 +291,7 @@ function App() {
     catch { setTasks(previous); }
   };
   if (!role) return <Login onLogin={login} />;
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} role={role} openCreate={() => showCreate()} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}</main></div>{modal && <TaskModal close={() => setModal(false)} addTask={addTask} defaultAssignee={defaultAssignee} people={people} />}</div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}</main></div></div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
