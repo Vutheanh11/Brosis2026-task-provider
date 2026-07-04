@@ -3,10 +3,11 @@ const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:10000/api').r
 export const getToken = () => sessionStorage.getItem('taskflow-token');
 
 async function request(path, options = {}) {
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   const response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
-      'Content-Type': 'application/json',
+      ...(!isFormData ? { 'Content-Type': 'application/json' } : {}),
       ...(getToken() ? { Authorization: `Bearer ${getToken()}` } : {}),
       ...options.headers
     }
@@ -26,7 +27,14 @@ export const api = {
   reminders: () => request('/reminders'),
   clearReminders: () => request('/reminders', { method: 'DELETE' }),
   tasks: () => request('/tasks'),
-  createTask: (task) => request('/tasks', { method: 'POST', body: JSON.stringify(task) }),
+  createTask: (task, files = []) => {
+    const body = new FormData();
+    body.append('task', JSON.stringify(task));
+    files.forEach((file) => body.append('files', file, file.webkitRelativePath || file.name));
+    return request('/tasks', { method: 'POST', body });
+  },
   updateTask: (id, changes) => request(`/tasks/${id}`, { method: 'PATCH', body: JSON.stringify(changes) }),
   deleteTask: (id) => request(`/tasks/${id}`, { method: 'DELETE' })
 };
+
+export const attachmentUrl = (file) => `${API_URL}/attachments/${encodeURIComponent(file.id)}?key=${encodeURIComponent(file.accessKey)}`;

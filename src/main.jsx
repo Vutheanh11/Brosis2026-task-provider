@@ -5,10 +5,10 @@ import {
   Clock3, Eye, EyeOff, LayoutDashboard, ListTodo, LogOut, Menu,
   MoreHorizontal, Plus, Search, ShieldCheck, Trash2,
   UserRound, Users, X, Upload, Send, AlertTriangle, Paperclip,
-  Settings, Moon, Sun, Type
+  Settings, Moon, Sun, Type, Download, FolderUp
 } from 'lucide-react';
 import './styles.css';
-import { api, getToken } from './api';
+import { api, attachmentUrl, getToken } from './api';
 
 
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
@@ -16,6 +16,7 @@ const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
+const fmtBytes = (bytes) => Number(bytes) < 1024 * 1024 ? `${Math.ceil(Number(bytes) / 1024) || 0} KB` : `${(Number(bytes) / 1024 / 1024).toFixed(1)} MB`;
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
 function Avatar({ person, small = false }) {
@@ -137,6 +138,12 @@ function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminder
   </>;
 }
 
+function TaskAttachments({ attachments = [] }) {
+  const downloadable = attachments.filter((file) => file.id && file.accessKey);
+  if (!downloadable.length) return null;
+  return <div className="task-attachments">{downloadable.map((file) => <a key={file.id} href={attachmentUrl(file)} target="_blank" rel="noreferrer" title={`Tải ${file.name}`}><Paperclip size={13} /><span>{file.name}</span><small>{fmtBytes(file.size)}</small><Download size={13} /></a>)}</div>;
+}
+
 function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tất cả');
@@ -145,7 +152,7 @@ function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate }
     <section className="page-heading"><div><p className="eyebrow">QUẢN LÝ CÔNG VIỆC</p><h1>{role === 'admin' ? 'Tất cả công việc' : 'Công việc của tôi'}</h1><p>{role === 'admin' ? 'Theo dõi, phân công và quản lý công việc của đội nhóm.' : 'Theo dõi và cập nhật tiến độ công việc được giao.'}</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
     <section className="panel task-table-panel">
       <div className="task-toolbar"><div className="search-box"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm kiếm công việc..." /></div><div className="filter-tabs">{['Tất cả', ...STATUS].map(s => <button key={s} className={filter === s ? 'active' : ''} onClick={() => setFilter(s)}>{s}</button>)}</div></div>
-      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><strong>{task.title}</strong><p>{task.description}</p></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></td><td>{role === 'admin' && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
+      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><strong>{task.title}</strong><p>{task.description}</p><TaskAttachments attachments={task.attachments} /></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{STATUS.map(s => <option key={s}>{s}</option>)}</select></td><td>{role === 'admin' && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
     </section>
   </>;
 }
@@ -155,6 +162,7 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
   const [form, setForm] = useState({ title: '', description: '', priority: 'Trung bình', due: new Date().toISOString().slice(0, 10), department: initialDept, assignee: defaultAssignee || people[0]?.id || '', tag: 'Development' });
   const [files, setFiles] = useState([]);
   const [sending, setSending] = useState(false);
+  const [uploadError, setUploadError] = useState('');
   const filteredPeople = people.filter((p) => p.department === form.department);
   const choices = filteredPeople;
   useEffect(() => {
@@ -167,11 +175,25 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
     event.preventDefault();
     if (!form.assignee) return;
     setSending(true);
-    await onSubmit({ ...form, status: 'Cần làm', attachments: files.map((file) => ({ name: file.name, size: file.size })) });
-    setSending(false);
-    onCancel();
+    setUploadError('');
+    try {
+      await onSubmit({ ...form, status: 'Cần làm' }, files);
+      onCancel();
+    } catch (error) {
+      setUploadError(error.message || 'Không thể tạo task hoặc upload file.');
+    } finally {
+      setSending(false);
+    }
   };
-  const addFiles = (event) => setFiles((current) => [...current, ...Array.from(event.target.files || [])].slice(0, 20));
+  const addFiles = (event) => {
+    const incoming = Array.from(event.target.files || []);
+    event.target.value = '';
+    if (incoming.some((file) => file.size > 10 * 1024 * 1024)) return setUploadError('Mỗi file không được vượt quá 10 MB.');
+    const next = [...files, ...incoming].slice(0, 20);
+    if (next.reduce((sum, file) => sum + file.size, 0) > 50 * 1024 * 1024) return setUploadError('Tổng dung lượng file không được vượt quá 50 MB.');
+    setUploadError(incoming.length + files.length > 20 ? 'Chỉ giữ lại 20 file đầu tiên.' : '');
+    setFiles(next);
+  };
   return <>
     <section className="page-heading"><div><p className="eyebrow">ADMIN · GIAO VIỆC</p><h1>Tạo task mới</h1><p>Thiết lập yêu cầu, deadline và gửi đến đúng thành viên.</p></div><button className="secondary" onClick={onCancel}>← Quay lại</button></section>
     <form className="create-task-layout" onSubmit={submit}>
@@ -180,9 +202,11 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
         <label>Task</label><input value={form.title} onChange={(e) => update('title', e.target.value)} placeholder="Nhập tên công việc" required />
         <label>Mô tả chi tiết</label><textarea value={form.description} onChange={(e) => update('description', e.target.value)} rows="6" placeholder="Mô tả yêu cầu, tiêu chí hoàn thành..." />
         <div className="form-grid"><div><label>Độ ưu tiên</label><select value={form.priority} onChange={(e) => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Last date</label><input type="date" value={form.due} onChange={(e) => update('due', e.target.value)} required /></div></div>
-        <label>Upload ảnh / folder / ZIP <span className="optional">(giả lập)</span></label>
-        <label className="upload-zone"><Upload size={24} /><strong>Chọn file hoặc kéo thả vào đây</strong><span>Ảnh, tài liệu, ZIP · tối đa 20 file</span><input type="file" multiple accept="image/*,.zip,.rar,.7z,.pdf,.doc,.docx" onChange={addFiles} /></label>
+        <label>Upload ảnh / folder / ZIP</label>
+        <label className="upload-zone"><Upload size={24} /><strong>Chọn file để upload thật</strong><span>Tối đa 20 file · 10 MB/file · tổng 50 MB</span><input type="file" multiple accept="image/*,.zip,.rar,.7z,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt" onChange={addFiles} /></label>
+        <label className="folder-picker"><FolderUp size={16} /> Chọn cả folder<input type="file" multiple webkitdirectory="" directory="" onChange={addFiles} /></label>
         {files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}
+        {uploadError && <p className="upload-error">{uploadError}</p>}
       </section>
       <aside className="panel assignment-card">
         <div className="form-section-title"><span>02</span><div><h3>Người nhận</h3><p>Chọn Ban và thành viên được giao việc.</p></div></div>
@@ -330,14 +354,16 @@ function App() {
   };
   const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
   const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
-  const addTask = async (task) => {
-    const temporary = { ...task, id: `temp-${Date.now()}` };
+  const addTask = async (task, files = []) => {
+    const temporary = { ...task, attachments: files.map((file) => ({ name: file.name, size: file.size })), id: `temp-${Date.now()}` };
     setTasks((current) => [temporary, ...current]);
     try {
-      const created = await api.createTask(task);
+      const created = await api.createTask(task, files);
       setTasks((current) => current.map((item) => item.id === temporary.id ? created : item));
-    } catch {
+      return created;
+    } catch (error) {
       setTasks((current) => current.filter((item) => item.id !== temporary.id));
+      throw error;
     }
   };
   const updateTaskStatus = async (id, status) => {
