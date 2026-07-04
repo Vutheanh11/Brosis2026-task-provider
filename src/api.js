@@ -22,6 +22,11 @@ async function request(path, options = {}) {
 export const api = {
   login: (email, password) => request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) }),
   updateProfile: (changes) => request('/profile', { method: 'PATCH', body: JSON.stringify(changes) }),
+  uploadAvatar: (file) => {
+    const body = new FormData();
+    body.append('avatar', file);
+    return request('/profile/avatar', { method: 'POST', body });
+  },
   register: (details) => request('/auth/register', { method: 'POST', body: JSON.stringify(details) }),
   users: () => request('/users'),
   reminders: () => request('/reminders'),
@@ -48,3 +53,4 @@ export const api = {
 };
 
 export const attachmentUrl = (file) => `${API_URL}/attachments/${encodeURIComponent(file.id)}?key=${encodeURIComponent(file.accessKey)}`;
+export const avatarUrl = (avatar) => avatar?.id && avatar?.accessKey ? `${API_URL}/avatars/${encodeURIComponent(avatar.id)}?key=${encodeURIComponent(avatar.accessKey)}` : '';

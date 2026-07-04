@@ -9,7 +9,7 @@ import {
   FileCheck, XCircle, ChevronLeft
 } from 'lucide-react';
 import './styles.css';
-import { api, attachmentUrl, getToken } from './api';
+import { api, attachmentUrl, avatarUrl, getToken } from './api';
 
 
 const STATUS = ['Cần làm', 'Đang làm', 'Chờ duyệt', 'Hoàn thành'];
@@ -27,7 +27,8 @@ const createDeleteCode = () => {
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
 function Avatar({ person, small = false }) {
-  return <span className={`avatar ${small ? 'small' : ''}`} style={{ background: person.color }}>{person.initials}</span>;
+  const src = avatarUrl(person?.avatar);
+  return <span className={`avatar ${small ? 'small' : ''} ${src ? 'has-image' : ''}`} style={{ background: person?.color }}>{src ? <img src={src} alt={person?.name ? `Avatar ${person.name}` : 'Avatar'} /> : person?.initials}</span>;
 }
 
 function Login({ onLogin }) {
@@ -89,7 +90,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
     ? [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc', icon: ListTodo }, { id: 'users', label: 'Thành viên', icon: Users }, { id: 'settings', label: 'Cài đặt', icon: Settings }]
     : [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc của tôi', icon: ListTodo }, { id: 'settings', label: 'Cài đặt', icon: Settings }];
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
-  const miniPerson = { initials, color: user?.color || '#73a4ff' };
+  const miniPerson = { initials, color: user?.color || '#73a4ff', avatar: user?.avatar, name: user?.name };
   return <>
     {mobileOpen && <div className="overlay" onClick={close}></div>}
     <aside className={`sidebar ${mobileOpen ? 'open' : ''}`}>
@@ -106,7 +107,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
 function Topbar({ title, role, onLogout, openMenu, user, notifications = [], notificationTitle, onOpenTask }) {
   const [showNotifications, setShowNotifications] = useState(false);
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
-  const topPerson = { initials, color: user?.color || '#73a4ff' };
+  const topPerson = { initials, color: user?.color || '#73a4ff', avatar: user?.avatar, name: user?.name };
   return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><div className="notification-wrap"><button className={`notification ${notifications.length ? 'has-alert' : ''}`} onClick={() => setShowNotifications((open) => !open)} title={notificationTitle}><Bell size={20} />{notifications.length > 0 && <b>{notifications.length > 99 ? '99+' : notifications.length}</b>}</button>{showNotifications && <div className="notification-menu"><div className="notification-menu-head"><strong>{notificationTitle}</strong><span>{notifications.length}</span></div>{notifications.length === 0 ? <p>Chưa có thông báo mới.</p> : notifications.map((item) => <button key={item.submissionId} onClick={() => { setShowNotifications(false); onOpenTask(item.taskId); }}><span className={`notification-icon ${item.tone || ''}`}><FileCheck size={17} /></span><span><strong>{item.title}</strong><small>{item.message}</small></span><i></i></button>)}</div>}</div><div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Admin' : 'User')}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
 }
 
@@ -321,6 +322,19 @@ function ProfilePage({ user, onUpdated }) {
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const changeAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    setError(''); setMessage('');
+    if (!['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) return setError('Avatar chỉ hỗ trợ JPG, PNG, WEBP hoặc GIF.');
+    if (file.size > 5 * 1024 * 1024) return setError('Avatar không được vượt quá 5 MB.');
+    setAvatarUploading(true);
+    try { const updated = await api.uploadAvatar(file); onUpdated(updated); setMessage('Đã cập nhật avatar thành công.'); }
+    catch (requestError) { setError(requestError.message); }
+    finally { setAvatarUploading(false); }
+  };
   const submit = async (event) => {
     event.preventDefault(); setError(''); setMessage('');
     if (password && password !== confirmPassword) return setError('Mật khẩu xác nhận chưa khớp.');
@@ -334,9 +348,9 @@ function ProfilePage({ user, onUpdated }) {
     finally { setSaving(false); }
   };
   return <>
-    <section className="page-heading"><div><p className="eyebrow">TÀI KHOẢN</p><h1>Thông tin cá nhân</h1><p>Bạn có thể đổi email và mật khẩu đăng nhập.</p></div></section>
+    <section className="page-heading"><div><p className="eyebrow">TÀI KHOẢN</p><h1>Thông tin cá nhân</h1><p>Bạn có thể đổi avatar, email và mật khẩu đăng nhập.</p></div></section>
     <section className="profile-layout">
-      <article className="panel profile-summary"><Avatar person={{ initials: user?.initials || user?.name?.slice(0, 2).toUpperCase() || '?', color: user?.color || '#73a4ff' }} /><h2>{user?.name}</h2><p>{user?.mssv || 'Chưa có MSSV'}</p><div className="locked-info"><div><span>Role / Chức vụ</span><strong>{user?.job || user?.role || 'Member'}</strong><small>Không thể thay đổi</small></div><div><span>Department</span><strong>{user?.department || 'Chưa phân ban'}</strong><small>Không thể thay đổi</small></div></div></article>
+      <article className="panel profile-summary"><div className="profile-avatar-wrap"><Avatar person={{ name: user?.name, initials: user?.initials || user?.name?.slice(0, 2).toUpperCase() || '?', color: user?.color || '#73a4ff', avatar: user?.avatar }} /><label className={`avatar-upload-button ${avatarUploading ? 'loading' : ''}`} title="Đổi avatar"><Upload size={15} /><input type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={changeAvatar} disabled={avatarUploading} /></label></div><strong className="avatar-upload-status">{avatarUploading ? 'Đang tải ảnh...' : 'Nhấn biểu tượng để đổi avatar'}</strong><h2>{user?.name}</h2><p>{user?.mssv || 'Chưa có MSSV'}</p><div className="locked-info"><div><span>Role / Chức vụ</span><strong>{user?.job || user?.role || 'Member'}</strong><small>Không thể thay đổi</small></div><div><span>Department</span><strong>{user?.department || 'Chưa phân ban'}</strong><small>Không thể thay đổi</small></div></div></article>
       <form className="panel profile-form" onSubmit={submit}><div className="settings-heading"><span><UserRound size={20} /></span><div><h3>Thông tin đăng nhập</h3><p>Role và Department được quản lý bởi quản trị viên.</p></div></div><label>Email</label><input type="email" value={email} onChange={(event) => setEmail(event.target.value)} required /><label>Mật khẩu mới <small>(để trống nếu không đổi)</small></label><input type="password" value={password} onChange={(event) => setPassword(event.target.value)} minLength="6" placeholder="Tối thiểu 6 ký tự" /><label>Xác nhận mật khẩu mới</label><input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} minLength="6" placeholder="Nhập lại mật khẩu" />{error && <p className="profile-message error">{error}</p>}{message && <p className="profile-message success">{message}</p>}<button className="primary profile-save" disabled={saving}>{saving ? 'Đang lưu...' : 'Lưu thay đổi'}</button></form>
     </section>
   </>;
