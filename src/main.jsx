@@ -18,6 +18,12 @@ const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thu�
 const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
 const fmtBytes = (bytes) => Number(bytes) < 1024 * 1024 ? `${Math.ceil(Number(bytes) / 1024) || 0} KB` : `${(Number(bytes) / 1024 / 1024).toFixed(1)} MB`;
+const createDeleteCode = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const bytes = new Uint8Array(6);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (value) => chars[value % chars.length]).join('');
+};
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
 function Avatar({ person, small = false }) {
@@ -288,6 +294,21 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
   return <div className="modal-backdrop" onMouseDown={close}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CÔNG VIỆC MỚI</p><h2>Giao công việc</h2><p>Chỉ định người phụ trách và thiết lập thông tin.</p></div><button className="modal-close" onClick={close}><X /></button></div><form onSubmit={submit}><label>Tên công việc</label><input autoFocus value={form.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Hoàn thiện báo cáo tháng..." required /><label>Mô tả</label><textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Mô tả ngắn gọn yêu cầu công việc" rows="3"></textarea><div className="form-grid"><div><label>Giao cho</label><select value={form.assignee} onChange={e => update('assignee', e.target.value)}>{people.map(p => <option key={p.id} value={p.id}>{p.name} — {p.role}</option>)}</select></div><div><label>Hạn hoàn thành</label><input type="date" value={form.due} onChange={e => update('due', e.target.value)} /></div><div><label>Mức ưu tiên</label><select value={form.priority} onChange={e => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Nhóm công việc</label><select value={form.tag} onChange={e => update('tag', e.target.value)}><option>Development</option><option>Design</option><option>Marketing</option><option>Content</option></select></div></div><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Hủy</button><button className="primary"><Plus size={18} /> Giao công việc</button></div></form></div></div>;
 }
 
+function DeleteTaskModal({ task, code, onClose, onConfirm }) {
+  const [value, setValue] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState('');
+  const matched = value === code;
+  const submit = async (event) => {
+    event.preventDefault();
+    if (!matched) return;
+    setDeleting(true); setError('');
+    try { await onConfirm(); }
+    catch (requestError) { setError(requestError.message || 'Không thể xóa task.'); setDeleting(false); }
+  };
+  return <div className="modal-backdrop delete-confirm-backdrop" onMouseDown={onClose}><div className="delete-confirm-modal" onMouseDown={(event) => event.stopPropagation()}><button className="modal-close delete-confirm-close" onClick={onClose}><X size={19} /></button><div className="delete-warning-icon"><AlertTriangle size={26} /></div><p className="eyebrow">XÁC NHẬN XÓA TASK</p><h2>Xóa “{task.title}”?</h2><p>Task, bài nộp và toàn bộ file liên quan sẽ bị xóa vĩnh viễn. Nhập chính xác mã dưới đây để tiếp tục.</p><div className="delete-code">{code}</div><form onSubmit={submit}><label>Nhập lại mã xác nhận</label><input autoFocus value={value} onChange={(event) => setValue(event.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))} placeholder="Nhập 6 ký tự" autoComplete="off" /><div className="delete-confirm-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="danger-confirm" disabled={!matched || deleting}>{deleting ? 'Đang xóa...' : 'Xóa task vĩnh viễn'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
+}
+
 function ProfilePage({ user, onUpdated }) {
   const [email, setEmail] = useState(user?.email || '');
   const [password, setPassword] = useState('');
@@ -354,6 +375,7 @@ function App() {
   const [tasks, setTasks] = useState([]);
   const [defaultAssignee, setDefaultAssignee] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState('');
+  const [deletePrompt, setDeletePrompt] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
@@ -403,6 +425,7 @@ function App() {
     setPeople([]);
     setReminders([]);
     setSelectedTaskId('');
+    setDeletePrompt(null);
     setPage('overview');
   };
   const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
@@ -440,7 +463,17 @@ function App() {
     const previous = tasks;
     setTasks((current) => current.filter((task) => task.id !== id));
     try { await api.deleteTask(id); }
-    catch { setTasks(previous); }
+    catch (error) { setTasks(previous); throw error; }
+  };
+  const askToRemoveTask = (id) => {
+    const task = tasks.find((item) => item.id === id);
+    if (task) setDeletePrompt({ task, code: createDeleteCode() });
+  };
+  const confirmRemoveTask = async () => {
+    if (!deletePrompt) return;
+    await removeTask(deletePrompt.task.id);
+    if (selectedTaskId === deletePrompt.task.id) { setSelectedTaskId(''); setPage('tasks'); }
+    setDeletePrompt(null);
   };
   const clearReminders = async () => {
     if (!window.confirm('Xóa toàn bộ lời nhắc hiện tại?')) return;
@@ -454,7 +487,7 @@ function App() {
   const selectedTask = tasks.find((task) => task.id === selectedTaskId);
   const selectedPerson = role === 'admin' ? getPerson(selectedTask?.assignee, people) : { name: user?.name || 'Bạn' };
   const notifications = role === 'admin' ? tasks.flatMap((task) => (task.submissions || []).filter((submission) => submission.status === 'pending').map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, memberName: getPerson(task.assignee, people).name }))) : [];
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} onOpenTask={openTask} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={removeTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div></div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} onOpenTask={openTask} /><main className="content">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
