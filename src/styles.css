@@ -185,6 +185,8 @@ tbody tr:hover { background: #fbfcfe; }
 .upload-zone strong { color: #44516a; font-size: 11px; }.upload-zone span { color: #98a1b0; font-size: 9px; }.upload-zone input { display: none; }
 .file-list { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 10px; }.file-list span { display: inline-flex; align-items: center; gap: 5px; background: #f0f4fb; color: #5d6a80; border-radius: 7px; padding: 6px 8px; font-size: 9px; }.file-list button { border: 0; background: transparent; color: #9aa4b4; padding: 0 0 0 3px; }
 .member-options { display: grid; gap: 8px; max-height: 320px; overflow-y: auto; }.member-options > label { border: 1px solid #e2e6ed; border-radius: 10px; padding: 10px; display: flex; align-items: center; gap: 9px; cursor: pointer; }.member-options > label.selected { border-color: #155e75; background: #f1f6f6; }.member-options input { display: none; }.member-options div { flex: 1; display: flex; flex-direction: column; min-width: 0; }.member-options strong { font-size: 10px; }.member-options span { color: #949dac; font-size: 8px; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }.member-options > label > svg { color: #155e75; opacity: 0; }.member-options > label.selected > svg { opacity: 1; }
+.member-options > label.selected strong { color: #d33f50; }
+.member-options > label.selected span { color: #a84a55; }
 .send-note { margin-top: 18px; background: #f2f7ff; color: #6680ad; border-radius: 9px; padding: 11px; display: flex; gap: 8px; font-size: 9px; line-height: 1.5; }.send-note svg { flex: 0 0 auto; color: #155e75; }.send-task-button { width: 100%; margin-top: 14px; }.send-task-button:disabled { opacity: .6; }
 
 /* Admin intelligence */
@@ -277,6 +279,7 @@ html[data-theme="dark"] .topbar { background: #0b232cfa; border-color: #27414b; 
 html[data-theme="dark"] .content { background: #071a21; }
 html[data-theme="dark"] .panel, html[data-theme="dark"] .stat-card, html[data-theme="dark"] .user-card, html[data-theme="dark"] .login-panel, html[data-theme="dark"] .login-card { color: #dce8eb; background: #0d2731; border-color: #27414b; box-shadow: 0 6px 20px #00000020; }
 html[data-theme="dark"] h1, html[data-theme="dark"] h2, html[data-theme="dark"] h3, html[data-theme="dark"] strong { color: #eef6f7; }
+html[data-theme="dark"] label, html[data-theme="dark"] .task-form-card label, html[data-theme="dark"] .assignment-card > label, html[data-theme="dark"] .task-title-cell strong, html[data-theme="dark"] .person-cell strong { color: #eef6f7; }
 html[data-theme="dark"] .muted, html[data-theme="dark"] .welcome-row > div > p:last-child, html[data-theme="dark"] .page-heading > div > p:last-child, html[data-theme="dark"] .panel-header p { color: #91a5ad; }
 html[data-theme="dark"] .panel-header, html[data-theme="dark"] td, html[data-theme="dark"] th, html[data-theme="dark"] .recent-item, html[data-theme="dark"] .user-card-footer, html[data-theme="dark"] .form-section-title, html[data-theme="dark"] .settings-heading { border-color: #27414b; }
 html[data-theme="dark"] th { color: #96aab2; background: #102e39; }
@@ -287,6 +290,8 @@ html[data-theme="dark"] .filter-tabs button.active, html[data-theme="dark"] .sec
 html[data-theme="dark"] .task-form-card > input, html[data-theme="dark"] .task-form-card textarea, html[data-theme="dark"] .task-form-card select, html[data-theme="dark"] .assignment-card > select { color: #dce8eb; background: #102e39; border-color: #34515c; }
 html[data-theme="dark"] .upload-zone { color: #77b9ca !important; background: #102e39; border-color: #496570; }
 html[data-theme="dark"] .member-options > label { background: #102e39; border-color: #34515c; }.member-options > label.selected, html[data-theme="dark"] .member-options > label.selected { background: #163d49; border-color: #4d91a3; }
+html[data-theme="dark"] .member-options > label.selected strong { color: #ffffff; }
+html[data-theme="dark"] .member-options > label.selected span { color: #d6e5e8; }
 html[data-theme="dark"] .setting-options > button { color: #c9d9dd; background: #102e39; border-color: #34515c; }.setting-options > button.selected, html[data-theme="dark"] .setting-options > button.selected { background: #163d49; border-color: #4d91a3; }
 html[data-theme="dark"] .setting-options strong { color: #eef6f7; }.settings-preview, html[data-theme="dark"] .settings-preview { background: linear-gradient(135deg, #0d2731, #123640); }
 html[data-theme="dark"] .donut::after { background: #0d2731; }
