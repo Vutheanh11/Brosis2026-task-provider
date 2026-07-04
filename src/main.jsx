@@ -11,8 +11,8 @@ import { api, getToken } from './api';
 
 
 const STATUS = ['Cần làm', 'Đang làm', 'Hoàn thành'];
+const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
-const ELEVATED_JOBS = new Set(['Leader', 'Sub Leader', 'Mentor', 'Supporter']);
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 
@@ -33,7 +33,8 @@ function Login({ onLogin }) {
     setLoading(true);
     try {
       const result = await api.login(email, password);
-      onLogin({ role: result.user.role, token: result.token, user: result.user });
+      const workspaceRole = result.user.role === 'admin' || MANAGEMENT_ROLES.includes(result.user.job) ? 'admin' : 'user';
+      onLogin({ role: workspaceRole, token: result.token, user: result.user });
     } catch (requestError) {
       setError(requestError.message || 'Email hoặc mật khẩu chưa đúng.');
     } finally {
@@ -87,7 +88,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
       <nav>{nav.map((item) => <button key={item.id} className={page === item.id || (page === 'create' && item.id === 'tasks') ? 'active' : ''} onClick={() => { setPage(item.id); close(); }}><item.icon size={19} />{item.label}</button>)}</nav>
       <div className="sidebar-bottom">
         <div className="help-card"><div className="help-icon"><Sparkles size={18} /></div><strong>Cần trợ giúp?</strong><p>Xem hướng dẫn sử dụng Faerie Workspace</p><button>Tìm hiểu thêm</button></div>
-        <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{role === 'admin' ? 'Quản trị viên' : 'Thành viên'}</span></div><MoreHorizontal size={18} /></div>
+        <div className="mini-profile"><Avatar person={miniPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Quản trị viên' : 'Thành viên')}</span></div><MoreHorizontal size={18} /></div>
       </div>
     </aside>
   </>;
@@ -96,7 +97,7 @@ function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
 function Topbar({ title, role, onLogout, openMenu, user }) {
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
   const topPerson = { initials, color: user?.color || '#73a4ff' };
-  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{role === 'admin' ? 'Admin' : 'User'}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
+  return <header className="topbar"><div className="topbar-title"><button className="menu-button" onClick={openMenu}><Menu /></button><div><p>Faerie Workspace</p><h2>{title}</h2></div></div><div className="topbar-actions"><button className="notification"><Bell size={20} /><span></span></button><div className="top-avatar"><Avatar person={topPerson} small /><div><strong>{user?.name || '—'}</strong><span>{user?.job || (role === 'admin' ? 'Admin' : 'User')}</span></div></div><button className="logout" onClick={onLogout} title="Đăng xuất"><LogOut size={19} /></button></div></header>;
 }
 
 function StatCard({ label, value, detail, icon: Icon, tone }) {
@@ -218,15 +219,7 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
 }
 
 function App() {
-  const [role, setRole] = useState(() => {
-    const savedRole = sessionStorage.getItem('taskflow-role');
-    if (savedRole) return savedRole;
-    try {
-      const savedUser = JSON.parse(sessionStorage.getItem('taskflow-user'));
-      if (savedUser?.job && ELEVATED_JOBS.has(savedUser.job)) return 'admin';
-    } catch { /* ignore */ }
-    return null;
-  });
+  const [role, setRole] = useState(() => sessionStorage.getItem('taskflow-role'));
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
@@ -248,11 +241,10 @@ function App() {
     }
   }, [role]);
   const login = ({ role: nextRole, token, user: nextUser }) => {
-    const uiRole = nextRole === 'admin' || ELEVATED_JOBS.has(nextUser?.job) ? 'admin' : 'user';
-    sessionStorage.setItem('taskflow-role', uiRole);
+    sessionStorage.setItem('taskflow-role', nextRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
     if (nextUser) sessionStorage.setItem('taskflow-user', JSON.stringify(nextUser));
-    setRole(uiRole);
+    setRole(nextRole);
     setUser(nextUser || null);
   };
   const logout = () => {
