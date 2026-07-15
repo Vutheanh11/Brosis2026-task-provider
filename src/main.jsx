@@ -28,6 +28,10 @@ const createDeleteCode = () => {
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
 const canAccessManagement = (person) => person?.role === 'admin' || MANAGEMENT_ROLES.includes(person?.job);
 const canManageTaskFlow = (person) => TASK_MANAGER_ROLES.includes(person?.job);
+const normalizeText = (text = '') => String(text).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase().trim();
+const isVanHoa = (person) => normalizeText(person?.department) === 'van hoa';
+const canViewReminderReports = (person) => ['Supporter', 'Leader', 'Sub Leader'].includes(person?.job) || (person?.job === 'Sub Leader Ban' && isVanHoa(person));
+const canIssueWarnings = (person) => person?.job === 'Sub Leader' || (person?.job === 'Sub Leader Ban' && isVanHoa(person));
 
 function Avatar({ person, small = false }) {
   const src = avatarUrl(person?.avatar);
@@ -90,7 +94,14 @@ function Login({ onLogin }) {
 
 function Sidebar({ page, setPage, role, mobileOpen, close, user }) {
   const nav = role === 'admin'
-    ? [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc', icon: ListTodo }, { id: 'users', label: 'Thành viên', icon: Users }, { id: 'settings', label: 'Cài đặt', icon: Settings }]
+    ? [
+      { id: 'overview', label: 'Tổng quan', icon: LayoutDashboard },
+      { id: 'tasks', label: 'Công việc', icon: ListTodo },
+      { id: 'users', label: 'Thành viên', icon: Users },
+      ...(canViewReminderReports(user) ? [{ id: 'reminder-report', label: 'Số lần nhắc nhở', icon: Bell }] : []),
+      ...(canIssueWarnings(user) ? [{ id: 'warnings', label: 'Đánh dấu cảnh báo', icon: AlertTriangle }] : []),
+      { id: 'settings', label: 'Cài đặt', icon: Settings }
+    ]
     : [{ id: 'overview', label: 'Tổng quan', icon: LayoutDashboard }, { id: 'tasks', label: 'Công việc của tôi', icon: ListTodo }, { id: 'settings', label: 'Cài đặt', icon: Settings }];
   const initials = user?.name ? user.name.slice(0, 2).toUpperCase() : '?';
   const miniPerson = { initials, color: user?.color || '#73a4ff', avatar: user?.avatar, name: user?.name };
@@ -279,7 +290,8 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
 }
 
 function ReminderTable({ reminders }) {
-  return <div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase().replace(/\s+/g, '-')}`}>{item.byWho}</span></td></tr>)}</tbody></table>{!reminders.length && <div className="empty compact-empty"><Bell size={22} /><strong>Không có lời nhắc</strong></div>}</div>;
+  const targetLabel = (item) => item.targetType === 'member' ? (item.targetUserName || 'Thành viên cố định') : item.targetType === 'department' ? `Ban ${item.targetDepartment}` : 'Tất cả';
+  return <div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>ĐỐI TƯỢNG</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td>{targetLabel(item)}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase().replace(/\s+/g, '-')}`}>{item.byWho}</span></td></tr>)}</tbody></table>{!reminders.length && <div className="empty compact-empty"><Bell size={22} /><strong>Không có lời nhắc</strong></div>}</div>;
 }
 
 function AdminInsights({ tasks, people, reminders, canManageTasks, onClearReminders, onCreateReminder }) {
@@ -310,6 +322,35 @@ function UsersPage({ tasks, people, canManageTasks, onAssign }) {
   return <><section className="page-heading"><div><p className="eyebrow">ĐỘI NGŨ</p><h1>Thành viên</h1><p>{canManageTasks ? 'Quản lý thành viên và giao công việc trực tiếp.' : 'Quản lý thông tin thành viên trong workspace.'}</p></div></section><section className="users-grid">{people.map(person => { const assigned = tasks.filter(t => t.assignee === person.id); const done = assigned.filter(t => t.status === 'Hoàn thành').length; return <article className="user-card" key={person.id}><div className="user-card-top"><Avatar person={person} /><button><MoreHorizontal /></button></div><h3>{person.name}</h3><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span><span className="user-email">{person.email}</span><div className="user-progress"><div><span>Tiến độ công việc</span><strong>{assigned.length ? Math.round(done / assigned.length * 100) : 0}%</strong></div><div className="progress-track"><span style={{ width: `${assigned.length ? done / assigned.length * 100 : 0}%` }}></span></div></div><div className="user-card-footer"><span><strong>{assigned.length}</strong> công việc</span>{canManageTasks && <button onClick={() => onAssign(person.id)}>Giao việc →</button>}</div></article>; })}</section></>;
 }
 
+function ReminderReportPage({ reports, onOpen }) {
+  return <><section className="page-heading"><div><p className="eyebrow">CORE TEAM · THEO DÕI</p><h1>Số lần nhắc nhở</h1><p>Danh sách toàn bộ thành viên các ban và số lần bị nhắc.</p></div></section><section className="panel task-table-panel"><div className="table-scroll"><table><thead><tr><th>MSSV</th><th>HỌ TÊN</th><th>SDT</th><th>EMAIL</th><th>BAN</th><th>ROLE</th><th>SỐ LẦN BỊ NHẮC</th></tr></thead><tbody>{reports.map((person) => <tr key={person.id} className="clickable-row" onClick={() => onOpen(person)}><td><strong>{person.mssv || '—'}</strong></td><td>{person.name}</td><td>{person.phone || '—'}</td><td>{person.email}</td><td>{person.department || '—'}</td><td><span className={`role-badge role-${(person.role || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.role || 'Member'}</span></td><td><span className={`metric-pill ${person.reminderCount ? 'overdue' : ''}`}>{person.reminderCount || 0}</span></td></tr>)}</tbody></table>{!reports.length && <div className="empty"><Bell size={28} /><strong>Chưa có dữ liệu nhắc nhở</strong></div>}</div></section></>;
+}
+
+function ReminderDetailModal({ member, onClose }) {
+  if (!member) return null;
+  return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal member-detail-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CHI TIẾT NHẮC NHỞ</p><h2>{member.name}</h2><p>{member.mssv || 'Chưa có MSSV'} · {member.department || 'Chưa phân ban'}</p></div><button className="modal-close" onClick={onClose}><X /></button></div><div className="member-detail-body"><div className="member-info-grid"><div><span>SDT</span><strong>{member.phone || '—'}</strong></div><div><span>Email</span><strong>{member.email}</strong></div><div><span>Ban</span><strong>{member.department || '—'}</strong></div><div><span>Role</span><strong>{member.role || 'Member'}</strong></div><div><span>Số lần bị nhắc</span><strong>{member.reminderCount || 0}</strong></div><div><span>Cảnh báo hiện tại</span><strong>{member.warnings || 0}</strong></div></div><h3>Lý do bị nhắc</h3><div className="reason-list">{(member.reasons || []).map((reason) => <article key={reason.id}><strong>{new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(reason.time))}</strong><p>{reason.message}</p><span>{reason.byWho} · {reason.targetType === 'member' ? 'Nhắc riêng' : `Nhắc ban ${reason.targetDepartment}`}</span></article>)}{!(member.reasons || []).length && <div className="empty compact-empty"><Bell size={22} /><strong>Thành viên này chưa bị nhắc</strong></div>}</div></div></div></div>;
+}
+
+function WarningPage({ people, onOpen }) {
+  return <><section className="page-heading"><div><p className="eyebrow">SUB LEADER · CẢNH BÁO</p><h1>Đánh dấu cảnh báo thành viên</h1><p>Chọn thành viên, đặt số lần cảnh báo từ 0 đến 3 và nhập lý do xác nhận.</p></div></section><section className="panel task-table-panel"><div className="table-scroll"><table><thead><tr><th>MSSV</th><th>HỌ TÊN</th><th>SDT</th><th>EMAIL</th><th>BAN</th><th>ROLE</th><th>WARNING</th></tr></thead><tbody>{people.map((person) => <tr key={person.id} className="clickable-row" onClick={() => onOpen(person)}><td><strong>{person.mssv || '—'}</strong></td><td>{person.name}</td><td>{person.phone || '—'}</td><td>{person.email}</td><td>{person.department || '—'}</td><td><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span></td><td><span className={`warning-level warning-${Math.min(Number(person.warnings) || 0, 3)}`}><AlertTriangle size={14} />{Number(person.warnings) || 0} lần</span></td></tr>)}</tbody></table></div></section></>;
+}
+
+function WarningModal({ member, onClose, onSubmit }) {
+  const [count, setCount] = useState(String(Number(member?.warnings) || 0));
+  const [reason, setReason] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+  if (!member) return null;
+  const submit = async (event) => {
+    event.preventDefault();
+    if (reason.trim().length < 3) return setError('Hãy nhập lý do cảnh báo.');
+    setSaving(true); setError('');
+    try { await onSubmit(member.id, { count: Number(count), reason: reason.trim() }); }
+    catch (requestError) { setError(requestError.message || 'Không thể cập nhật cảnh báo.'); setSaving(false); }
+  };
+  return <div className="modal-backdrop" onMouseDown={onClose}><div className="modal warning-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">ĐÁNH DẤU CẢNH BÁO</p><h2>{member.name}</h2><p>{member.mssv || 'Chưa có MSSV'} · {member.department || 'Chưa phân ban'}</p></div><button className="modal-close" onClick={onClose}><X /></button></div><form onSubmit={submit}><label>Số lần cảnh báo</label><select value={count} onChange={(event) => setCount(event.target.value)}>{[0, 1, 2, 3].map((value) => <option key={value} value={value}>{value} lần</option>)}</select><label>Lý do cảnh báo</label><textarea rows="5" maxLength="1000" value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Nhập lý do vì sao thành viên bị cảnh báo..." /><div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="primary" disabled={saving}><AlertTriangle size={17} />{saving ? 'Đang lưu...' : 'Xác nhận'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
+}
+
 function TaskModal({ close, addTask, defaultAssignee, people }) {
   const [form, setForm] = useState({ title: '', description: '', assignee: defaultAssignee || people[0]?.id || '', priority: 'Trung bình', status: 'Cần làm', due: '2026-07-10', tag: 'Development' });
   const update = (key, value) => setForm({ ...form, [key]: value });
@@ -317,18 +358,30 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
   return <div className="modal-backdrop" onMouseDown={close}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CÔNG VIỆC MỚI</p><h2>Giao công việc</h2><p>Chỉ định người phụ trách và thiết lập thông tin.</p></div><button className="modal-close" onClick={close}><X /></button></div><form onSubmit={submit}><label>Tên công việc</label><input autoFocus value={form.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Hoàn thiện báo cáo tháng..." required /><label>Mô tả</label><textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Mô tả ngắn gọn yêu cầu công việc" rows="3"></textarea><div className="form-grid"><div><label>Giao cho</label><select value={form.assignee} onChange={e => update('assignee', e.target.value)}>{people.map(p => <option key={p.id} value={p.id}>{p.name} — {p.role}</option>)}</select></div><div><label>Hạn hoàn thành</label><input type="date" value={form.due} onChange={e => update('due', e.target.value)} /></div><div><label>Mức ưu tiên</label><select value={form.priority} onChange={e => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Nhóm công việc</label><select value={form.tag} onChange={e => update('tag', e.target.value)}><option>Development</option><option>Design</option><option>Marketing</option><option>Content</option></select></div></div><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Hủy</button><button className="primary"><Plus size={18} /> Giao công việc</button></div></form></div></div>;
 }
 
-function CreateReminderModal({ onClose, onSubmit }) {
+function CreateReminderModal({ people, onClose, onSubmit }) {
+  const departments = useMemo(() => [...new Set([...DEPARTMENTS, ...people.map((person) => person.department).filter(Boolean)])], [people]);
+  const [targetType, setTargetType] = useState('department');
+  const [targetDepartment, setTargetDepartment] = useState(departments[0] || '');
+  const [targetUserId, setTargetUserId] = useState('');
   const [message, setMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
+  const membersInDepartment = people.filter((person) => person.department === targetDepartment);
+  useEffect(() => {
+    if (targetType === 'member' && !membersInDepartment.some((person) => person.id === targetUserId)) {
+      setTargetUserId(membersInDepartment[0]?.id || '');
+    }
+  }, [targetType, targetDepartment, people]);
   const submit = async (event) => {
     event.preventDefault();
     if (message.trim().length < 3) return setError('Nhập ít nhất 3 ký tự.');
+    if (!targetDepartment) return setError('Hãy chọn ban nhận lời nhắc.');
+    if (targetType === 'member' && !targetUserId) return setError('Hãy chọn thành viên cố định.');
     setSending(true); setError('');
-    try { await onSubmit(message.trim()); }
+    try { await onSubmit({ message: message.trim(), targetType, targetDepartment, targetUserId: targetType === 'member' ? targetUserId : '' }); }
     catch (requestError) { setError(requestError.message || 'Không thể tạo lời nhắc.'); setSending(false); }
   };
-  return <div className="modal-backdrop reminder-modal-backdrop" onMouseDown={onClose}><div className="modal reminder-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CORE TEAM · LỜI NHẮC</p><h2>Tạo lời nhắc mới</h2><p>Thành viên sẽ đọc được lời nhắc này ở Dashboard.</p></div><button className="modal-close" onClick={onClose}><X /></button></div><form onSubmit={submit}><label>Nội dung lời nhắc</label><textarea autoFocus rows="5" maxLength="600" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ví dụ: Ban Media nhớ nộp file trước 20:00 hôm nay..." /><div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="primary" disabled={sending}><Bell size={17} />{sending ? 'Đang tạo...' : 'Tạo lời nhắc'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
+  return <div className="modal-backdrop reminder-modal-backdrop" onMouseDown={onClose}><div className="modal reminder-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CORE TEAM · LỜI NHẮC</p><h2>Tạo lời nhắc mới</h2><p>Chọn nhắc theo ban hoặc nhắc một thành viên cố định.</p></div><button className="modal-close" onClick={onClose}><X /></button></div><form onSubmit={submit}><label>Đối tượng nhận</label><div className="target-switch"><button type="button" className={targetType === 'department' ? 'active' : ''} onClick={() => setTargetType('department')}>Chọn ban cố định</button><button type="button" className={targetType === 'member' ? 'active' : ''} onClick={() => setTargetType('member')}>Chọn người cố định</button></div><label>Ban</label><select value={targetDepartment} onChange={(event) => setTargetDepartment(event.target.value)} required>{departments.map((department) => <option key={department}>{department}</option>)}</select>{targetType === 'member' && <><label>Thành viên</label><select value={targetUserId} onChange={(event) => setTargetUserId(event.target.value)} required>{membersInDepartment.map((person) => <option key={person.id} value={person.id}>{person.name} — {person.mssv || 'Chưa có MSSV'}</option>)}</select>{membersInDepartment.length === 0 && <p className="upload-error">Ban này chưa có thành viên để chọn.</p>}</>}<label>Nội dung lời nhắc</label><textarea autoFocus rows="5" maxLength="600" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ví dụ: Ban Media nhớ nộp file trước 20:00 hôm nay..." /><div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="primary" disabled={sending}><Bell size={17} />{sending ? 'Đang tạo...' : 'Tạo lời nhắc'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
 }
 
 function DeleteTaskModal({ task, code, onClose, onConfirm }) {
@@ -425,6 +478,7 @@ function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [reminderReports, setReminderReports] = useState([]);
   const [departmentTasks, setDepartmentTasks] = useState([]);
   const [page, setPage] = useState('overview');
   const [tasks, setTasks] = useState([]);
@@ -432,8 +486,12 @@ function App() {
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [deletePrompt, setDeletePrompt] = useState(null);
   const [reminderPrompt, setReminderPrompt] = useState(false);
+  const [selectedReminderMember, setSelectedReminderMember] = useState(null);
+  const [warningTarget, setWarningTarget] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(() => Boolean(sessionStorage.getItem('taskflow-role')));
+  const canSeeReminderReport = role === 'admin' && canViewReminderReports(user);
+  const canMarkMemberWarnings = role === 'admin' && canIssueWarnings(user);
   useEffect(() => {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('faerie-theme', theme);
@@ -454,8 +512,9 @@ function App() {
       api.tasks(),
       api.reminders(),
       role === 'admin' ? api.users() : Promise.resolve([]),
-      role === 'admin' ? Promise.resolve([]) : api.departmentTasks()
-    ]).then(([taskResult, reminderResult, userResult, departmentTaskResult]) => {
+      role === 'admin' ? Promise.resolve([]) : api.departmentTasks(),
+      canSeeReminderReport ? api.reminderReports() : Promise.resolve([])
+    ]).then(([taskResult, reminderResult, userResult, departmentTaskResult, reminderReportResult]) => {
       if (cancelled) return;
       if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
       if (reminderResult.status === 'fulfilled') setReminders(reminderResult.value.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)));
@@ -463,24 +522,28 @@ function App() {
         ...u, role: u.job || 'Thành viên', initials: u.initials || u.name.slice(0, 2).toUpperCase(), color: u.color || '#73a4ff'
       })));
       if (departmentTaskResult.status === 'fulfilled') setDepartmentTasks(departmentTaskResult.value);
+      if (reminderReportResult.status === 'fulfilled') setReminderReports(reminderReportResult.value);
+      if (!canSeeReminderReport) setReminderReports([]);
       if (role === 'admin') setDepartmentTasks([]);
     }).finally(() => { if (!cancelled) setWorkspaceLoading(false); });
     return () => { cancelled = true; };
-  }, [role]);
+  }, [role, user?.id, user?.job, user?.department, canSeeReminderReport]);
   useEffect(() => {
     if (!role || !getToken()) return;
     const refreshTasks = () => Promise.allSettled([
       api.tasks(),
       api.reminders(),
-      role === 'admin' ? Promise.resolve([]) : api.departmentTasks()
-    ]).then(([taskResult, reminderResult, departmentTaskResult]) => {
+      role === 'admin' ? Promise.resolve([]) : api.departmentTasks(),
+      canSeeReminderReport ? api.reminderReports() : Promise.resolve([])
+    ]).then(([taskResult, reminderResult, departmentTaskResult, reminderReportResult]) => {
       if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
       if (reminderResult.status === 'fulfilled') setReminders(reminderResult.value.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)));
       if (departmentTaskResult.status === 'fulfilled') setDepartmentTasks(departmentTaskResult.value);
+      if (reminderReportResult.status === 'fulfilled') setReminderReports(reminderReportResult.value);
     }).catch(() => {});
     const timer = window.setInterval(refreshTasks, 15000);
     return () => window.clearInterval(timer);
-  }, [role]);
+  }, [role, canSeeReminderReport]);
   const login = ({ role: nextRole, token, user: nextUser }) => {
     sessionStorage.setItem('taskflow-role', nextRole);
     if (token) sessionStorage.setItem('taskflow-token', token);
@@ -497,16 +560,19 @@ function App() {
     setUser(null);
     setTasks([]);
     setDepartmentTasks([]);
+    setReminderReports([]);
     setPeople([]);
     setReminders([]);
     setSelectedTaskId('');
     setDeletePrompt(null);
     setReminderPrompt(false);
+    setSelectedReminderMember(null);
+    setWarningTarget(null);
     setWorkspaceLoading(false);
     setPage('overview');
   };
   const canUseTaskActions = role === 'admin' && canManageTaskFlow(user);
-  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
+  const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', 'reminder-report': 'Số lần nhắc nhở', warnings: 'Đánh dấu cảnh báo', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
   const showCreate = (assignee = '') => {
     if (!canUseTaskActions) return;
     setDefaultAssignee(assignee);
@@ -572,11 +638,19 @@ function App() {
     if (!window.confirm('Xóa toàn bộ lời nhắc hiện tại?')) return;
     try { await api.clearReminders(); setReminders([]); } catch {}
   };
-  const createReminder = async (message) => {
-    const created = await api.createReminder(message);
+  const createReminder = async (details) => {
+    const created = await api.createReminder(details);
     setReminders((current) => [created, ...current.filter((item) => item.id !== created.id)].slice(0, 20));
+    if (canSeeReminderReport) api.reminderReports().then(setReminderReports).catch(() => {});
     setReminderPrompt(false);
     return created;
+  };
+  const markMemberWarning = async (id, details) => {
+    const updated = await api.markWarning(id, details);
+    setPeople((current) => current.map((person) => person.id === id ? { ...person, ...updated } : person));
+    setReminderReports((current) => current.map((person) => person.id === id ? { ...person, warnings: updated.warnings } : person));
+    setWarningTarget(null);
+    return updated;
   };
   const updateCurrentUser = (updated) => {
     setUser(updated);
@@ -591,7 +665,7 @@ function App() {
       : []
     : tasks.flatMap((task) => (task.submissions || []).filter((submission) => ['approved', 'rejected'].includes(submission.status) && !submission.memberReadAt).map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: submission.status === 'approved' ? 'Core Team đã Approve bài nộp' : 'Core Team đã Reject bài nộp', tone: submission.status })));
   const notificationTitle = role === 'admin' ? (canUseTaskActions ? 'Bài nộp chờ duyệt' : 'Thông báo workspace') : 'Kết quả duyệt task';
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} canManageTasks={canUseTaskActions} departmentTasks={departmentTasks} openCreate={() => showCreate()} onClearReminders={clearReminders} onCreateReminder={() => setReminderPrompt(true)} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} canManageTasks={canUseTaskActions} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} canManageTasks={canUseTaskActions} onAssign={showCreate} />}{page === 'create' && canUseTaskActions && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{reminderPrompt && <CreateReminderModal onClose={() => setReminderPrompt(false)} onSubmit={createReminder} />}{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} canManageTasks={canUseTaskActions} departmentTasks={departmentTasks} openCreate={() => showCreate()} onClearReminders={clearReminders} onCreateReminder={() => setReminderPrompt(true)} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} canManageTasks={canUseTaskActions} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} canManageTasks={canUseTaskActions} onAssign={showCreate} />}{page === 'reminder-report' && canSeeReminderReport && <ReminderReportPage reports={reminderReports} onOpen={setSelectedReminderMember} />}{page === 'warnings' && canMarkMemberWarnings && <WarningPage people={people} onOpen={setWarningTarget} />}{page === 'create' && canUseTaskActions && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{reminderPrompt && <CreateReminderModal people={people} onClose={() => setReminderPrompt(false)} onSubmit={createReminder} />}{selectedReminderMember && <ReminderDetailModal member={selectedReminderMember} onClose={() => setSelectedReminderMember(null)} />}{warningTarget && <WarningModal member={warningTarget} onClose={() => setWarningTarget(null)} onSubmit={markMemberWarning} />}{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
