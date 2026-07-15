@@ -14,6 +14,7 @@ import { api, attachmentUrl, avatarUrl, getToken } from './api';
 
 const STATUS = ['Cần làm', 'Đang làm', 'Chờ duyệt', 'Hoàn thành'];
 const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
+const TASK_MANAGER_ROLES = ['Supporter', 'Leader', 'Leader Ban', 'Sub Leader Ban'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
@@ -25,6 +26,8 @@ const createDeleteCode = () => {
   return Array.from(bytes, (value) => chars[value % chars.length]).join('');
 };
 const getPerson = (id, people = []) => people.find((person) => person.id === id) || { name: '—', initials: '?', color: '#ccc', role: '' };
+const canAccessManagement = (person) => person?.role === 'admin' || MANAGEMENT_ROLES.includes(person?.job);
+const canManageTaskFlow = (person) => TASK_MANAGER_ROLES.includes(person?.job);
 
 function Avatar({ person, small = false }) {
   const src = avatarUrl(person?.avatar);
@@ -44,7 +47,7 @@ function Login({ onLogin }) {
     setLoading(true);
     try {
       const result = await api.login(email, password);
-      const workspaceRole = result.user.role === 'admin' || MANAGEMENT_ROLES.includes(result.user.job) ? 'admin' : 'user';
+      const workspaceRole = canAccessManagement(result.user) ? 'admin' : 'user';
       onLogin({ role: workspaceRole, token: result.token, user: result.user });
     } catch (requestError) {
       setError(requestError.message || 'Email hoặc mật khẩu chưa đúng.');
@@ -122,7 +125,7 @@ function StatusBadge({ status }) {
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminders, user, onShowAll, onOpenTask }) {
+function Dashboard({ tasks, people, reminders, role, canManageTasks, openCreate, onClearReminders, user, onShowAll, onOpenTask }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
@@ -132,7 +135,7 @@ function Dashboard({ tasks, people, reminders, role, openCreate, onClearReminder
   const greeting = hour < 12 ? 'buổi sáng' : hour < 18 ? 'buổi chiều' : 'buổi tối';
   const firstName = user?.name ? user.name.split(' ').pop() : '';
   return <>
-    <section className="welcome-row"><div><p className="eyebrow">{dateLabel}</p><h1>Chào {greeting}{firstName ? `, ${firstName}` : ''} <span>👋</span></h1><p>Đây là tình hình công việc hôm nay của {role === 'admin' ? 'đội nhóm bạn' : 'bạn'}.</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
+    <section className="welcome-row"><div><p className="eyebrow">{dateLabel}</p><h1>Chào {greeting}{firstName ? `, ${firstName}` : ''} <span>👋</span></h1><p>Đây là tình hình công việc hôm nay của {role === 'admin' ? 'đội nhóm bạn' : 'bạn'}.</p></div>{canManageTasks && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
     <section className="stats-grid">
       <StatCard label="Tổng công việc" value={visible.length} detail="trong không gian làm việc" icon={ListTodo} tone="blue" />
       <StatCard label="Đang thực hiện" value={doing} detail="cần được theo dõi" icon={Clock3} tone="orange" />
@@ -153,20 +156,21 @@ function TaskAttachments({ attachments = [] }) {
   return <div className="task-attachments">{downloadable.map((file) => <a key={file.id} href={attachmentUrl(file)} target="_blank" rel="noreferrer" title={`Tải ${file.name}`}><Paperclip size={13} /><span>{file.name}</span><small>{fmtBytes(file.size)}</small><Download size={13} /></a>)}</div>;
 }
 
-function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, openCreate, onOpenTask }) {
+function TasksPage({ tasks, people, onUpdateStatus, onRemove, role, canManageTasks, openCreate, onOpenTask }) {
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('Tất cả');
   const visible = tasks.filter(t => (filter === 'Tất cả' || t.status === filter) && t.title.toLowerCase().includes(search.toLowerCase()));
+  const adminDescription = canManageTasks ? 'Theo dõi, phân công và quản lý công việc của đội nhóm.' : 'Theo dõi công việc của đội nhóm ở chế độ quản lý thông tin.';
   return <>
-    <section className="page-heading"><div><p className="eyebrow">QUẢN LÝ CÔNG VIỆC</p><h1>{role === 'admin' ? 'Tất cả công việc' : 'Công việc của tôi'}</h1><p>{role === 'admin' ? 'Theo dõi, phân công và quản lý công việc của đội nhóm.' : 'Theo dõi và cập nhật tiến độ công việc được giao.'}</p></div>{role === 'admin' && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
+    <section className="page-heading"><div><p className="eyebrow">QUẢN LÝ CÔNG VIỆC</p><h1>{role === 'admin' ? 'Tất cả công việc' : 'Công việc của tôi'}</h1><p>{role === 'admin' ? adminDescription : 'Theo dõi và cập nhật tiến độ công việc được giao.'}</p></div>{canManageTasks && <button className="primary" onClick={openCreate}><Plus size={19} /> Giao công việc</button>}</section>
     <section className="panel task-table-panel">
       <div className="task-toolbar"><div className="search-box"><Search size={18} /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Tìm kiếm công việc..." /></div><div className="filter-tabs">{['Tất cả', ...STATUS].map(s => <button key={s} className={filter === s ? 'active' : ''} onClick={() => setFilter(s)}>{s}</button>)}</div></div>
-      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); const statusChoices = role === 'admin' ? STATUS : [...new Set(['Cần làm', 'Đang làm', task.status])]; return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><button className="task-open" onClick={() => onOpenTask(task.id)}>{task.title}</button><p>{task.description}</p><TaskAttachments attachments={task.attachments} /></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select disabled={role !== 'admin' && ['Chờ duyệt', 'Hoàn thành'].includes(task.status)} className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{statusChoices.map(s => <option key={s}>{s}</option>)}</select></td><td>{role === 'admin' && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
+      <div className="table-scroll"><table><thead><tr><th>CÔNG VIỆC</th>{role === 'admin' && <th>NGƯỜI PHỤ TRÁCH</th>}<th>ƯU TIÊN</th><th>HẠN CHÓT</th><th>TRẠNG THÁI</th><th></th></tr></thead><tbody>{visible.map(task => { const person = getPerson(task.assignee, people); const statusChoices = role === 'admin' ? STATUS : [...new Set(['Cần làm', 'Đang làm', task.status])]; const canEditStatus = canManageTasks || (role !== 'admin' && !['Chờ duyệt', 'Hoàn thành'].includes(task.status)); return <tr key={task.id}><td><div className="task-title-cell"><span className="tag">{task.tag}</span><button className="task-open" onClick={() => onOpenTask(task.id)}>{task.title}</button><p>{task.description}</p><TaskAttachments attachments={task.attachments} /></div></td>{role === 'admin' && <td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.role}</span></div></div></td>}<td><Priority value={task.priority} /></td><td><span className="date-cell"><CalendarDays size={15} />{fmtDate(task.due)}</span></td><td><select disabled={!canEditStatus} className={`status-select s-${task.status.replaceAll(' ', '-').toLowerCase()}`} value={task.status} onChange={e => onUpdateStatus(task.id, e.target.value)}>{statusChoices.map(s => <option key={s}>{s}</option>)}</select></td><td>{canManageTasks && <button className="delete-btn" onClick={() => onRemove(task.id)} title="Xóa"><Trash2 size={17} /></button>}</td></tr>; })}</tbody></table>{visible.length === 0 && <div className="empty"><Search size={28} /><strong>Không tìm thấy công việc</strong><p>Thử thay đổi từ khóa hoặc bộ lọc.</p></div>}</div>
     </section>
   </>;
 }
 
-function TaskDetailPage({ task, role, person, onBack, onSubmit, onReview }) {
+function TaskDetailPage({ task, role, canManageTasks, person, onBack, onSubmit, onReview }) {
   const [files, setFiles] = useState([]);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -204,8 +208,8 @@ function TaskDetailPage({ task, role, person, onBack, onSubmit, onReview }) {
     <section className="page-heading detail-heading"><div><button className="back-link" onClick={onBack}><ChevronLeft size={18} /> Quay lại danh sách</button><p className="eyebrow">CHI TIẾT TASK</p><h1>{task.title}</h1><p>{task.department || task.tag} · Phụ trách: {person?.name || '—'}</p></div><StatusBadge status={task.status} /></section>
     <section className="task-detail-grid">
       <article className="panel task-detail-main"><div className="detail-meta"><div><span>Mức độ ưu tiên</span><Priority value={task.priority} /></div><div><span>Deadline</span><strong><CalendarDays size={16} /> {fmtDate(task.due)}</strong></div></div><div className="detail-description"><h3>Mô tả công việc</h3><p>{task.description || 'Không có mô tả.'}</p></div><div className="detail-assigned-files"><h3>File được giao</h3><TaskAttachments attachments={task.attachments} />{!(task.attachments || []).some((file) => file.id) && <p>Không có file đính kèm.</p>}</div></article>
-      <aside className="panel submission-history"><div className="panel-header"><div><h3>Bài nộp của thành viên</h3><p>File, yêu cầu và kết quả duyệt</p></div><FileCheck size={19} /></div><div className="submission-list">{submissions.map((submission) => <article className={`submission-card submission-${submission.status}`} key={submission.id}><div className="submission-card-head"><div><strong>{new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(submission.submittedAt))}</strong><span className={`submission-state ${submission.status}`}>{submissionLabel(submission.status)}</span></div></div>{submission.message && <div className="submission-message"><MessageSquare size={16} /><p>{submission.message}</p></div>}<TaskAttachments attachments={submission.files} />{submission.reviewedAt && <div className={`review-feedback ${submission.status}`}><strong>Nhận xét của Admin</strong><p>{submission.reviewComment || (submission.status === 'approved' ? 'Bài nộp đã được duyệt.' : 'Bài nộp chưa đạt yêu cầu, vui lòng kiểm tra và nộp lại.')}</p></div>}{role === 'admin' && submission.status === 'pending' && <><label className="review-note-label">Nhận xét cho thành viên</label><textarea className="review-note-input" rows="3" maxLength="2000" value={reviewNotes[submission.id] || ''} onChange={(event) => setReviewNotes((current) => ({ ...current, [submission.id]: event.target.value }))} placeholder="Nhập nhận xét (không bắt buộc)..." /><div className="review-actions"><button className="approve-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'approve')}><CheckCircle2 size={17} /> Approve</button><button className="reject-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'reject')}><XCircle size={17} /> Reject</button></div></>}</article>)}{submissions.length === 0 && <div className="empty compact-empty"><FileCheck size={25} /><strong>Chưa có bài nộp</strong></div>}</div></aside>
-      {role !== 'admin' && <form className="panel submit-work-card" onSubmit={submitWork}><div className="form-section-title"><span><Upload size={18} /></span><div><h3>Submit file</h3><p>Nộp kết quả công việc để quản trị viên duyệt.</p></div></div>{pending ? <div className="pending-note"><Clock3 size={19} /><div><strong>Bài của bạn đang chờ duyệt</strong><span>Bạn có thể nộp lại nếu quản trị viên Reject.</span></div></div> : task.status === 'Hoàn thành' ? <div className="approved-note"><CheckCircle2 size={19} /><div><strong>Task đã được Approve</strong><span>Công việc đã hoàn thành.</span></div></div> : <><label>File kết quả</label><label className="upload-zone submission-upload"><Upload size={24} /><strong>Chọn file cần nộp</strong><span>Tối đa 20 file · 10 MB/file · tổng 50 MB</span><input type="file" multiple onChange={addSubmissionFiles} /></label>{files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}<label>Yêu cầu / Đề xuất</label><textarea value={message} onChange={(event) => setMessage(event.target.value)} rows="5" maxLength="3000" placeholder="Nhập câu hỏi, yêu cầu hỗ trợ hoặc đề xuất của bạn..." /><button className="primary submit-work-button" disabled={submitting}><Send size={17} />{submitting ? 'Đang nộp...' : 'Submit'}</button></>}{error && <p className="upload-error">{error}</p>}</form>}
+      <aside className="panel submission-history"><div className="panel-header"><div><h3>Bài nộp của thành viên</h3><p>File, yêu cầu và kết quả duyệt</p></div><FileCheck size={19} /></div><div className="submission-list">{submissions.map((submission) => <article className={`submission-card submission-${submission.status}`} key={submission.id}><div className="submission-card-head"><div><strong>{new Intl.DateTimeFormat('vi-VN', { dateStyle: 'short', timeStyle: 'short' }).format(new Date(submission.submittedAt))}</strong><span className={`submission-state ${submission.status}`}>{submissionLabel(submission.status)}</span></div></div>{submission.message && <div className="submission-message"><MessageSquare size={16} /><p>{submission.message}</p></div>}<TaskAttachments attachments={submission.files} />{submission.reviewedAt && <div className={`review-feedback ${submission.status}`}><strong>Nhận xét của Core Team</strong><p>{submission.reviewComment || (submission.status === 'approved' ? 'Bài nộp đã được duyệt.' : 'Bài nộp chưa đạt yêu cầu, vui lòng kiểm tra và nộp lại.')}</p></div>}{canManageTasks && submission.status === 'pending' && <><label className="review-note-label">Nhận xét cho thành viên</label><textarea className="review-note-input" rows="3" maxLength="2000" value={reviewNotes[submission.id] || ''} onChange={(event) => setReviewNotes((current) => ({ ...current, [submission.id]: event.target.value }))} placeholder="Nhập nhận xét (không bắt buộc)..." /><div className="review-actions"><button className="approve-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'approve')}><CheckCircle2 size={17} /> Approve</button><button className="reject-button" disabled={reviewingId === submission.id} onClick={() => review(submission.id, 'reject')}><XCircle size={17} /> Reject</button></div></>}</article>)}{submissions.length === 0 && <div className="empty compact-empty"><FileCheck size={25} /><strong>Chưa có bài nộp</strong></div>}</div></aside>
+      {role !== 'admin' && <form className="panel submit-work-card" onSubmit={submitWork}><div className="form-section-title"><span><Upload size={18} /></span><div><h3>Submit file</h3><p>Nộp kết quả công việc để Core Team duyệt.</p></div></div>{pending ? <div className="pending-note"><Clock3 size={19} /><div><strong>Bài của bạn đang chờ duyệt</strong><span>Bạn có thể nộp lại nếu Core Team Reject.</span></div></div> : task.status === 'Hoàn thành' ? <div className="approved-note"><CheckCircle2 size={19} /><div><strong>Task đã được Approve</strong><span>Công việc đã hoàn thành.</span></div></div> : <><label>File kết quả</label><label className="upload-zone submission-upload"><Upload size={24} /><strong>Chọn file cần nộp</strong><span>Tối đa 20 file · 10 MB/file · tổng 50 MB</span><input type="file" multiple onChange={addSubmissionFiles} /></label>{files.length > 0 && <div className="file-list">{files.map((file, index) => <span key={`${file.name}-${index}`}><Paperclip size={13} />{file.name}<button type="button" onClick={() => setFiles(files.filter((_, i) => i !== index))}>×</button></span>)}</div>}<label>Yêu cầu / Đề xuất</label><textarea value={message} onChange={(event) => setMessage(event.target.value)} rows="5" maxLength="3000" placeholder="Nhập câu hỏi, yêu cầu hỗ trợ hoặc đề xuất của bạn..." /><button className="primary submit-work-button" disabled={submitting}><Send size={17} />{submitting ? 'Đang nộp...' : 'Submit'}</button></>}{error && <p className="upload-error">{error}</p>}</form>}
     </section>
   </>;
 }
@@ -248,7 +252,7 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
     setFiles(next);
   };
   return <>
-    <section className="page-heading"><div><p className="eyebrow">ADMIN · GIAO VIỆC</p><h1>Tạo task mới</h1><p>Thiết lập yêu cầu, deadline và gửi đến đúng thành viên.</p></div><button className="secondary" onClick={onCancel}>← Quay lại</button></section>
+    <section className="page-heading"><div><p className="eyebrow">CORE TEAM · GIAO VIỆC</p><h1>Tạo task mới</h1><p>Thiết lập yêu cầu, deadline và gửi đến đúng thành viên.</p></div><button className="secondary" onClick={onCancel}>← Quay lại</button></section>
     <form className="create-task-layout" onSubmit={submit}>
       <section className="panel task-form-card">
         <div className="form-section-title"><span>01</span><div><h3>Thông tin công việc</h3><p>Nội dung và kết quả cần hoàn thành.</p></div></div>
@@ -285,8 +289,8 @@ function AdminInsights({ tasks, people, reminders, onClearReminders }) {
   </section>;
 }
 
-function UsersPage({ tasks, people, onAssign }) {
-  return <><section className="page-heading"><div><p className="eyebrow">ĐỘI NGŨ</p><h1>Thành viên</h1><p>Quản lý thành viên và giao công việc trực tiếp.</p></div></section><section className="users-grid">{people.map(person => { const assigned = tasks.filter(t => t.assignee === person.id); const done = assigned.filter(t => t.status === 'Hoàn thành').length; return <article className="user-card" key={person.id}><div className="user-card-top"><Avatar person={person} /><button><MoreHorizontal /></button></div><h3>{person.name}</h3><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span><span className="user-email">{person.email}</span><div className="user-progress"><div><span>Tiến độ công việc</span><strong>{assigned.length ? Math.round(done / assigned.length * 100) : 0}%</strong></div><div className="progress-track"><span style={{ width: `${assigned.length ? done / assigned.length * 100 : 0}%` }}></span></div></div><div className="user-card-footer"><span><strong>{assigned.length}</strong> công việc</span><button onClick={() => onAssign(person.id)}>Giao việc →</button></div></article>; })}</section></>;
+function UsersPage({ tasks, people, canManageTasks, onAssign }) {
+  return <><section className="page-heading"><div><p className="eyebrow">ĐỘI NGŨ</p><h1>Thành viên</h1><p>{canManageTasks ? 'Quản lý thành viên và giao công việc trực tiếp.' : 'Quản lý thông tin thành viên trong workspace.'}</p></div></section><section className="users-grid">{people.map(person => { const assigned = tasks.filter(t => t.assignee === person.id); const done = assigned.filter(t => t.status === 'Hoàn thành').length; return <article className="user-card" key={person.id}><div className="user-card-top"><Avatar person={person} /><button><MoreHorizontal /></button></div><h3>{person.name}</h3><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span><span className="user-email">{person.email}</span><div className="user-progress"><div><span>Tiến độ công việc</span><strong>{assigned.length ? Math.round(done / assigned.length * 100) : 0}%</strong></div><div className="progress-track"><span style={{ width: `${assigned.length ? done / assigned.length * 100 : 0}%` }}></span></div></div><div className="user-card-footer"><span><strong>{assigned.length}</strong> công việc</span>{canManageTasks && <button onClick={() => onAssign(person.id)}>Giao việc →</button>}</div></article>; })}</section></>;
 }
 
 function TaskModal({ close, addTask, defaultAssignee, people }) {
@@ -455,8 +459,13 @@ function App() {
     setWorkspaceLoading(false);
     setPage('overview');
   };
+  const canUseTaskActions = role === 'admin' && canManageTaskFlow(user);
   const pageTitle = useMemo(() => ({ overview: 'Tổng quan', tasks: role === 'admin' ? 'Công việc' : 'Công việc của tôi', 'task-detail': 'Chi tiết task', users: 'Thành viên', create: 'Tạo task', settings: 'Cài đặt', profile: 'Tài khoản' })[page], [page, role]);
-  const showCreate = (assignee = '') => { setDefaultAssignee(assignee); setPage('create'); };
+  const showCreate = (assignee = '') => {
+    if (!canUseTaskActions) return;
+    setDefaultAssignee(assignee);
+    setPage('create');
+  };
   const openTask = (id) => {
     setSelectedTaskId(id); setPage('task-detail');
     if (role !== 'admin') {
@@ -465,6 +474,7 @@ function App() {
     }
   };
   const addTask = async (task, files = []) => {
+    if (!canUseTaskActions) throw new Error('Chỉ Core Team mới có quyền giao task.');
     const temporary = { ...task, attachments: files.map((file) => ({ name: file.name, size: file.size })), id: `temp-${Date.now()}` };
     setTasks((current) => [temporary, ...current]);
     try {
@@ -477,6 +487,7 @@ function App() {
     }
   };
   const updateTaskStatus = async (id, status) => {
+    if (role === 'admin' && !canUseTaskActions) return;
     const previous = tasks.find((task) => task.id === id)?.status;
     setTasks((current) => current.map((task) => task.id === id ? { ...task, status } : task));
     try { await api.updateTask(id, { status }); }
@@ -488,17 +499,20 @@ function App() {
     return updated;
   };
   const reviewTaskSubmission = async (taskId, submissionId, action, comment) => {
+    if (!canUseTaskActions) throw new Error('Chỉ Core Team mới có quyền duyệt bài nộp.');
     const updated = await api.reviewSubmission(taskId, submissionId, action, comment);
     setTasks((current) => current.map((task) => task.id === taskId ? updated : task));
     return updated;
   };
   const removeTask = async (id) => {
+    if (!canUseTaskActions) throw new Error('Chỉ Core Team mới có quyền xóa task.');
     const previous = tasks;
     setTasks((current) => current.filter((task) => task.id !== id));
     try { await api.deleteTask(id); }
     catch (error) { setTasks(previous); throw error; }
   };
   const askToRemoveTask = (id) => {
+    if (!canUseTaskActions) return;
     const task = tasks.find((item) => item.id === id);
     if (task) setDeletePrompt({ task, code: createDeleteCode() });
   };
@@ -520,10 +534,12 @@ function App() {
   const selectedTask = tasks.find((task) => task.id === selectedTaskId);
   const selectedPerson = role === 'admin' ? getPerson(selectedTask?.assignee, people) : { name: user?.name || 'Bạn' };
   const notifications = role === 'admin'
-    ? tasks.flatMap((task) => (task.submissions || []).filter((submission) => submission.status === 'pending').map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: `${getPerson(task.assignee, people).name} đã nộp bài`, tone: 'pending' })))
-    : tasks.flatMap((task) => (task.submissions || []).filter((submission) => ['approved', 'rejected'].includes(submission.status) && !submission.memberReadAt).map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: submission.status === 'approved' ? 'Admin đã Approve bài nộp' : 'Admin đã Reject bài nộp', tone: submission.status })));
-  const notificationTitle = role === 'admin' ? 'Bài nộp chờ duyệt' : 'Kết quả duyệt task';
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} onAssign={showCreate} />}{page === 'create' && role === 'admin' && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
+    ? canUseTaskActions
+      ? tasks.flatMap((task) => (task.submissions || []).filter((submission) => submission.status === 'pending').map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: `${getPerson(task.assignee, people).name} đã nộp bài`, tone: 'pending' })))
+      : []
+    : tasks.flatMap((task) => (task.submissions || []).filter((submission) => ['approved', 'rejected'].includes(submission.status) && !submission.memberReadAt).map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: submission.status === 'approved' ? 'Core Team đã Approve bài nộp' : 'Core Team đã Reject bài nộp', tone: submission.status })));
+  const notificationTitle = role === 'admin' ? (canUseTaskActions ? 'Bài nộp chờ duyệt' : 'Thông báo workspace') : 'Kết quả duyệt task';
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} canManageTasks={canUseTaskActions} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} canManageTasks={canUseTaskActions} onAssign={showCreate} />}{page === 'create' && canUseTaskActions && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);
