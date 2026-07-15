@@ -14,7 +14,7 @@ import { api, attachmentUrl, avatarUrl, getToken } from './api';
 
 const STATUS = ['Cần làm', 'Đang làm', 'Chờ duyệt', 'Hoàn thành'];
 const MANAGEMENT_ROLES = ['Mentor', 'Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
-const TASK_MANAGER_ROLES = ['Supporter', 'Leader', 'Leader Ban', 'Sub Leader Ban'];
+const TASK_MANAGER_ROLES = ['Supporter', 'Leader', 'Sub Leader', 'Leader Ban', 'Sub Leader Ban'];
 const DEPARTMENTS = ['Event', 'Media', 'Nghệ Thuật', 'Văn Hóa', 'Kỹ Thuật'];
 const LOGO_URL = `${import.meta.env.BASE_URL}faerie-logo.png`;
 const fmtDate = (date) => new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit' }).format(new Date(`${date}T00:00:00`));
@@ -125,7 +125,7 @@ function StatusBadge({ status }) {
 
 function Priority({ value }) { return <span className={`priority p-${value.replace('Trung bình', 'medium').toLowerCase()}`}>● {value}</span>; }
 
-function Dashboard({ tasks, people, reminders, role, canManageTasks, openCreate, onClearReminders, user, onShowAll, onOpenTask }) {
+function Dashboard({ tasks, people, reminders, role, canManageTasks, departmentTasks, openCreate, onClearReminders, onCreateReminder, user, onShowAll, onOpenTask }) {
   const visible = tasks;
   const completed = visible.filter((t) => t.status === 'Hoàn thành').length;
   const doing = visible.filter((t) => t.status === 'Đang làm').length;
@@ -146,7 +146,9 @@ function Dashboard({ tasks, people, reminders, role, canManageTasks, openCreate,
       <div className="panel activity-panel"><div className="panel-header"><div><h3>Công việc gần đây</h3><p>Tiến độ mới nhất của đội nhóm</p></div><button className="text-action" onClick={onShowAll}>Xem tất cả →</button></div><div className="recent-list">{visible.slice(0, 5).map(task => { const person = getPerson(task.assignee, people); return <button className="recent-item" key={task.id} onClick={() => onOpenTask(task.id)}><div className="task-check">{task.status === 'Hoàn thành' ? <Check size={15} /> : null}</div><div className="recent-copy"><strong className={task.status === 'Hoàn thành' ? 'done' : ''}>{task.title}</strong><span>{task.tag} · Hạn {fmtDate(task.due)}</span></div><Avatar person={person} small /><StatusBadge status={task.status} /></button>; })}</div></div>
       <div className="panel progress-panel"><div className="panel-header"><div><h3>Tiến độ tổng quan</h3><p>Theo trạng thái công việc</p></div></div><div className="donut-wrap"><div className="donut" style={{ '--pct': `${visible.length ? completed / visible.length * 100 : 0}%` }}><div><strong>{visible.length ? Math.round(completed / visible.length * 100) : 0}%</strong><span>Hoàn thành</span></div></div></div><div className="legend">{STATUS.map((status, index) => <div key={status}><span className={`legend-dot dot-${index}`}></span><span>{status}</span><strong>{visible.filter(t => t.status === status).length}</strong></div>)}</div></div>
     </section>
-    {role === 'admin' && <AdminInsights tasks={tasks} people={people} reminders={reminders} onClearReminders={onClearReminders} />}
+    {role === 'admin'
+      ? <AdminInsights tasks={tasks} people={people} reminders={reminders} canManageTasks={canManageTasks} onClearReminders={onClearReminders} onCreateReminder={onCreateReminder} />
+      : <MemberInsights tasks={departmentTasks} reminders={reminders} user={user} />}
   </>;
 }
 
@@ -276,16 +278,31 @@ function CreateTaskPage({ people, defaultAssignee, onSubmit, onCancel }) {
   </>;
 }
 
-function AdminInsights({ tasks, people, reminders, onClearReminders }) {
+function ReminderTable({ reminders }) {
+  return <div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase().replace(/\s+/g, '-')}`}>{item.byWho}</span></td></tr>)}</tbody></table>{!reminders.length && <div className="empty compact-empty"><Bell size={22} /><strong>Không có lời nhắc</strong></div>}</div>;
+}
+
+function AdminInsights({ tasks, people, reminders, canManageTasks, onClearReminders, onCreateReminder }) {
   const now = new Date();
   const activeTasks = tasks.filter((task) => task.status !== 'Hoàn thành');
   const deadlines = [...activeTasks].sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 6);
   const daysLeft = (date) => Math.ceil((new Date(`${date}T23:59:59`) - now) / 86400000);
   return <section className="admin-insights">
     <div className="panel deadline-panel"><div className="panel-header"><div><h3>Timeline & deadline</h3><p>Công việc cần ưu tiên theo thời hạn</p></div><CalendarDays size={19} /></div><div className="timeline-list">{deadlines.map((task) => { const days = daysLeft(task.due); return <div key={task.id} className={`timeline-item ${days < 0 ? 'overdue' : days <= 3 ? 'urgent' : ''}`}><span className="timeline-line"></span><div className="timeline-date"><strong>{fmtDate(task.due)}</strong><span>{days < 0 ? `Quá ${Math.abs(days)} ngày` : days === 0 ? 'Hôm nay' : `Còn ${days} ngày`}</span></div><div className="timeline-copy"><strong>{task.title}</strong><span>{getPerson(task.assignee, people).name} · {task.department || task.tag}</span></div><Priority value={task.priority} /></div>; })}{deadlines.length === 0 && <div className="empty"><CheckCircle2 /><strong>Không có deadline đang chờ</strong></div>}</div></div>
-    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc điều hành</h3><p>Từ Mentor, Supporter và Leader</p></div><button className="clear-reminders" onClick={onClearReminders} disabled={!reminders.length}><Trash2 size={15} /> Xóa lời nhắc</button></div><div className="reminder-table-wrap"><table className="compact-table"><thead><tr><th>TIME</th><th>MESSAGE</th><th>BY WHO?</th></tr></thead><tbody>{reminders.map((item) => <tr key={item.id}><td>{new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }).format(new Date(item.time))}</td><td>{item.message}</td><td><span className={`by-badge by-${item.byWho?.toLowerCase()}`}>{item.byWho}</span></td></tr>)}</tbody></table>{!reminders.length && <div className="empty compact-empty"><Bell size={22} /><strong>Không có lời nhắc</strong></div>}</div></div>
+    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc điều hành</h3><p>Từ Core Team dành cho thành viên</p></div><div className="reminder-actions">{canManageTasks && <button className="create-reminder" onClick={onCreateReminder}><Plus size={15} /> Tạo lời nhắc</button>}<button className="clear-reminders" onClick={onClearReminders} disabled={!reminders.length}><Trash2 size={15} /> Xóa lời nhắc</button></div></div><ReminderTable reminders={reminders} /></div>
     <div className="panel member-report"><div className="panel-header"><div><h3>Thống kê toàn bộ thành viên</h3><p>Khối lượng công việc và mức cảnh báo</p></div><Users size={19} /></div><div className="table-scroll"><table><thead><tr><th>MSSV</th><th>HỌ VÀ TÊN</th><th>CHỨC VỤ</th><th>NĂM SINH</th><th>EMAIL</th><th>TASK ON DOING</th><th>TASK OVERDUE</th><th>WARNING</th></tr></thead><tbody>{people.map((person) => { const memberTasks = tasks.filter((task) => task.assignee === person.id); const doing = memberTasks.filter((task) => task.status === 'Đang làm').length; const overdue = memberTasks.filter((task) => task.status !== 'Hoàn thành' && daysLeft(task.due) < 0).length; const warnings = Number(person.warnings) || 0; return <tr key={person.id}><td><strong>{person.mssv || '—'}</strong></td><td><div className="person-cell"><Avatar person={person} small /><div><strong>{person.name}</strong><span>{person.department}</span></div></div></td><td><span className={`role-badge role-${(person.job || 'member').toLowerCase().replace(/\s+/g, '-')}`}>{person.job || 'Member'}</span></td><td>{person.birthYear || '—'}</td><td>{person.email}</td><td><span className="metric-pill doing">{doing}</span></td><td><span className={`metric-pill ${overdue ? 'overdue' : ''}`}>{overdue}</span></td><td><span className={`warning-level warning-${Math.min(warnings, 3)}`}><AlertTriangle size={14} />{warnings} lần</span></td></tr>; })}</tbody></table></div></div>
     <div className="panel all-task-report"><div className="panel-header"><div><h3>List all task</h3><p>Toàn bộ công việc trong hệ thống</p></div><ListTodo size={19} /></div><div className="table-scroll"><table><thead><tr><th>TASK</th><th>THÀNH VIÊN</th><th>BAN</th><th>DEADLINE</th><th>TRẠNG THÁI</th></tr></thead><tbody>{tasks.map((task) => <tr key={task.id}><td><strong>{task.title}</strong></td><td>{getPerson(task.assignee, people).name}</td><td>{task.department || task.tag}</td><td>{fmtDate(task.due)}</td><td><StatusBadge status={task.status} /></td></tr>)}</tbody></table></div></div>
+  </section>;
+}
+
+function MemberInsights({ tasks, reminders, user }) {
+  const now = new Date();
+  const activeTasks = tasks.filter((task) => task.status !== 'Hoàn thành');
+  const deadlines = [...activeTasks].sort((a, b) => new Date(a.due) - new Date(b.due)).slice(0, 8);
+  const daysLeft = (date) => Math.ceil((new Date(`${date}T23:59:59`) - now) / 86400000);
+  return <section className="admin-insights member-insights">
+    <div className="panel deadline-panel"><div className="panel-header"><div><h3>Timeline & deadline của Ban</h3><p>Deadline dành riêng cho Ban {user?.department || 'của bạn'}</p></div><CalendarDays size={19} /></div><div className="timeline-list">{deadlines.map((task) => { const days = daysLeft(task.due); return <div key={task.id} className={`timeline-item ${days < 0 ? 'overdue' : days <= 3 ? 'urgent' : ''}`}><span className="timeline-line"></span><div className="timeline-date"><strong>{fmtDate(task.due)}</strong><span>{days < 0 ? `Quá ${Math.abs(days)} ngày` : days === 0 ? 'Hôm nay' : `Còn ${days} ngày`}</span></div><div className="timeline-copy"><strong>{task.title}</strong><span>{task.department || task.tag} · {task.status}</span></div><Priority value={task.priority} /></div>; })}{deadlines.length === 0 && <div className="empty"><CheckCircle2 /><strong>Ban của bạn chưa có deadline đang chờ</strong></div>}</div></div>
+    <div className="panel reminder-panel"><div className="panel-header"><div><h3>Lời nhắc Core Team</h3><p>Các thông báo mới nhất dành cho thành viên</p></div><Bell size={19} /></div><ReminderTable reminders={reminders} /></div>
   </section>;
 }
 
@@ -298,6 +315,20 @@ function TaskModal({ close, addTask, defaultAssignee, people }) {
   const update = (key, value) => setForm({ ...form, [key]: value });
   const submit = (e) => { e.preventDefault(); if (!form.title.trim()) return; addTask(form); close(); };
   return <div className="modal-backdrop" onMouseDown={close}><div className="modal" onMouseDown={e => e.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CÔNG VIỆC MỚI</p><h2>Giao công việc</h2><p>Chỉ định người phụ trách và thiết lập thông tin.</p></div><button className="modal-close" onClick={close}><X /></button></div><form onSubmit={submit}><label>Tên công việc</label><input autoFocus value={form.title} onChange={e => update('title', e.target.value)} placeholder="Ví dụ: Hoàn thiện báo cáo tháng..." required /><label>Mô tả</label><textarea value={form.description} onChange={e => update('description', e.target.value)} placeholder="Mô tả ngắn gọn yêu cầu công việc" rows="3"></textarea><div className="form-grid"><div><label>Giao cho</label><select value={form.assignee} onChange={e => update('assignee', e.target.value)}>{people.map(p => <option key={p.id} value={p.id}>{p.name} — {p.role}</option>)}</select></div><div><label>Hạn hoàn thành</label><input type="date" value={form.due} onChange={e => update('due', e.target.value)} /></div><div><label>Mức ưu tiên</label><select value={form.priority} onChange={e => update('priority', e.target.value)}><option>Cao</option><option>Trung bình</option><option>Thấp</option></select></div><div><label>Nhóm công việc</label><select value={form.tag} onChange={e => update('tag', e.target.value)}><option>Development</option><option>Design</option><option>Marketing</option><option>Content</option></select></div></div><div className="modal-actions"><button type="button" className="secondary" onClick={close}>Hủy</button><button className="primary"><Plus size={18} /> Giao công việc</button></div></form></div></div>;
+}
+
+function CreateReminderModal({ onClose, onSubmit }) {
+  const [message, setMessage] = useState('');
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
+  const submit = async (event) => {
+    event.preventDefault();
+    if (message.trim().length < 3) return setError('Nhập ít nhất 3 ký tự.');
+    setSending(true); setError('');
+    try { await onSubmit(message.trim()); }
+    catch (requestError) { setError(requestError.message || 'Không thể tạo lời nhắc.'); setSending(false); }
+  };
+  return <div className="modal-backdrop reminder-modal-backdrop" onMouseDown={onClose}><div className="modal reminder-modal" onMouseDown={(event) => event.stopPropagation()}><div className="modal-header"><div><p className="eyebrow">CORE TEAM · LỜI NHẮC</p><h2>Tạo lời nhắc mới</h2><p>Thành viên sẽ đọc được lời nhắc này ở Dashboard.</p></div><button className="modal-close" onClick={onClose}><X /></button></div><form onSubmit={submit}><label>Nội dung lời nhắc</label><textarea autoFocus rows="5" maxLength="600" value={message} onChange={(event) => setMessage(event.target.value)} placeholder="Ví dụ: Ban Media nhớ nộp file trước 20:00 hôm nay..." /><div className="modal-actions"><button type="button" className="secondary" onClick={onClose}>Hủy</button><button className="primary" disabled={sending}><Bell size={17} />{sending ? 'Đang tạo...' : 'Tạo lời nhắc'}</button></div>{error && <p className="upload-error">{error}</p>}</form></div></div>;
 }
 
 function DeleteTaskModal({ task, code, onClose, onConfirm }) {
@@ -394,11 +425,13 @@ function App() {
   const [user, setUser] = useState(() => { try { return JSON.parse(sessionStorage.getItem('taskflow-user')); } catch { return null; } });
   const [people, setPeople] = useState([]);
   const [reminders, setReminders] = useState([]);
+  const [departmentTasks, setDepartmentTasks] = useState([]);
   const [page, setPage] = useState('overview');
   const [tasks, setTasks] = useState([]);
   const [defaultAssignee, setDefaultAssignee] = useState('');
   const [selectedTaskId, setSelectedTaskId] = useState('');
   const [deletePrompt, setDeletePrompt] = useState(null);
+  const [reminderPrompt, setReminderPrompt] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [workspaceLoading, setWorkspaceLoading] = useState(() => Boolean(sessionStorage.getItem('taskflow-role')));
   useEffect(() => {
@@ -420,20 +453,31 @@ function App() {
     Promise.allSettled([
       api.tasks(),
       api.reminders(),
-      role === 'admin' ? api.users() : Promise.resolve([])
-    ]).then(([taskResult, reminderResult, userResult]) => {
+      role === 'admin' ? api.users() : Promise.resolve([]),
+      role === 'admin' ? Promise.resolve([]) : api.departmentTasks()
+    ]).then(([taskResult, reminderResult, userResult, departmentTaskResult]) => {
       if (cancelled) return;
       if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
       if (reminderResult.status === 'fulfilled') setReminders(reminderResult.value.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)));
       if (role === 'admin' && userResult.status === 'fulfilled') setPeople(userResult.value.map((u) => ({
         ...u, role: u.job || 'Thành viên', initials: u.initials || u.name.slice(0, 2).toUpperCase(), color: u.color || '#73a4ff'
       })));
+      if (departmentTaskResult.status === 'fulfilled') setDepartmentTasks(departmentTaskResult.value);
+      if (role === 'admin') setDepartmentTasks([]);
     }).finally(() => { if (!cancelled) setWorkspaceLoading(false); });
     return () => { cancelled = true; };
   }, [role]);
   useEffect(() => {
     if (!role || !getToken()) return;
-    const refreshTasks = () => api.tasks().then(setTasks).catch(() => {});
+    const refreshTasks = () => Promise.allSettled([
+      api.tasks(),
+      api.reminders(),
+      role === 'admin' ? Promise.resolve([]) : api.departmentTasks()
+    ]).then(([taskResult, reminderResult, departmentTaskResult]) => {
+      if (taskResult.status === 'fulfilled') setTasks(taskResult.value);
+      if (reminderResult.status === 'fulfilled') setReminders(reminderResult.value.filter((item) => !['r1', 'r2', 'r3'].includes(item.id)));
+      if (departmentTaskResult.status === 'fulfilled') setDepartmentTasks(departmentTaskResult.value);
+    }).catch(() => {});
     const timer = window.setInterval(refreshTasks, 15000);
     return () => window.clearInterval(timer);
   }, [role]);
@@ -452,10 +496,12 @@ function App() {
     setRole(null);
     setUser(null);
     setTasks([]);
+    setDepartmentTasks([]);
     setPeople([]);
     setReminders([]);
     setSelectedTaskId('');
     setDeletePrompt(null);
+    setReminderPrompt(false);
     setWorkspaceLoading(false);
     setPage('overview');
   };
@@ -526,6 +572,12 @@ function App() {
     if (!window.confirm('Xóa toàn bộ lời nhắc hiện tại?')) return;
     try { await api.clearReminders(); setReminders([]); } catch {}
   };
+  const createReminder = async (message) => {
+    const created = await api.createReminder(message);
+    setReminders((current) => [created, ...current.filter((item) => item.id !== created.id)].slice(0, 20));
+    setReminderPrompt(false);
+    return created;
+  };
   const updateCurrentUser = (updated) => {
     setUser(updated);
     sessionStorage.setItem('taskflow-user', JSON.stringify(updated));
@@ -539,7 +591,7 @@ function App() {
       : []
     : tasks.flatMap((task) => (task.submissions || []).filter((submission) => ['approved', 'rejected'].includes(submission.status) && !submission.memberReadAt).map((submission) => ({ taskId: task.id, submissionId: submission.id, title: task.title, message: submission.status === 'approved' ? 'Core Team đã Approve bài nộp' : 'Core Team đã Reject bài nộp', tone: submission.status })));
   const notificationTitle = role === 'admin' ? (canUseTaskActions ? 'Bài nộp chờ duyệt' : 'Thông báo workspace') : 'Kết quả duyệt task';
-  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onClearReminders={clearReminders} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} canManageTasks={canUseTaskActions} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} canManageTasks={canUseTaskActions} onAssign={showCreate} />}{page === 'create' && canUseTaskActions && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
+  return <div className="app-shell"><Sidebar page={page} setPage={setPage} role={role} mobileOpen={mobileOpen} close={() => setMobileOpen(false)} user={user} /><div className="main-shell"><Topbar title={pageTitle} role={role} onLogout={logout} openMenu={() => setMobileOpen(true)} user={user} notifications={notifications} notificationTitle={notificationTitle} onOpenTask={openTask} /><main className="content">{workspaceLoading ? <WorkspaceLoading /> : <div key={`${page}-${selectedTaskId}`} className="page-transition">{page === 'overview' && <Dashboard tasks={tasks} people={people} reminders={reminders} role={role} canManageTasks={canUseTaskActions} departmentTasks={departmentTasks} openCreate={() => showCreate()} onClearReminders={clearReminders} onCreateReminder={() => setReminderPrompt(true)} user={user} onShowAll={() => setPage('tasks')} onOpenTask={openTask} />}{page === 'tasks' && <TasksPage tasks={tasks} people={people} onUpdateStatus={updateTaskStatus} onRemove={askToRemoveTask} role={role} canManageTasks={canUseTaskActions} openCreate={() => showCreate()} onOpenTask={openTask} />}{page === 'task-detail' && <TaskDetailPage task={selectedTask} role={role} canManageTasks={canUseTaskActions} person={selectedPerson} onBack={() => setPage('tasks')} onSubmit={submitTaskWork} onReview={reviewTaskSubmission} />}{page === 'users' && role === 'admin' && <UsersPage tasks={tasks} people={people} canManageTasks={canUseTaskActions} onAssign={showCreate} />}{page === 'create' && canUseTaskActions && <CreateTaskPage people={people} defaultAssignee={defaultAssignee} onSubmit={addTask} onCancel={() => setPage('tasks')} />}{page === 'settings' && <SettingsPage theme={theme} setTheme={setTheme} fontSize={fontSize} setFontSize={setFontSize} fontStyle={fontStyle} setFontStyle={setFontStyle} />}{page === 'profile' && <ProfilePage user={user} onUpdated={updateCurrentUser} />}</div>}</main></div>{reminderPrompt && <CreateReminderModal onClose={() => setReminderPrompt(false)} onSubmit={createReminder} />}{deletePrompt && <DeleteTaskModal task={deletePrompt.task} code={deletePrompt.code} onClose={() => setDeletePrompt(null)} onConfirm={confirmRemoveTask} />}</div>;
 }
 
 createRoot(document.getElementById('root')).render(<App />);

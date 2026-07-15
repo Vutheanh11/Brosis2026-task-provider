@@ -30,8 +30,10 @@ export const api = {
   register: (details) => request('/auth/register', { method: 'POST', body: JSON.stringify(details) }),
   users: () => request('/users'),
   reminders: () => request('/reminders'),
+  createReminder: (message) => request('/reminders', { method: 'POST', body: JSON.stringify({ message }) }),
   clearReminders: () => request('/reminders', { method: 'DELETE' }),
   tasks: () => request('/tasks'),
+  departmentTasks: () => request('/tasks/department'),
   createTask: (task, files = []) => {
     const body = new FormData();
     body.append('task', JSON.stringify(task));
